@@ -1,0 +1,26 @@
+{
+  "name": "sol-lottery",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@8.12.1",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "db:generate": "turbo run db:generate",
+    "db:migrate": "pnpm --filter @sol-lottery/db db:migrate",
+    "anchor:build": "anchor build",
+    "anchor:test": "anchor test",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,md,json}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3",
+    "turbo": "^2.3.0",
+    "typescript": "^5.6.3"
+  }
+}

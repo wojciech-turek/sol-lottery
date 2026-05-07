@@ -1,0 +1,30 @@
+{
+  "name": "@sol-lottery/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:studio": "prisma studio",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "build": "echo \"@sol-lottery/db is consumed as TS source\""
+  },
+  "dependencies": {
+    "@prisma/client": "^6.1.0"
+  },
+  "devDependencies": {
+    "@sol-lottery/eslint-config": "workspace:*",
+    "@sol-lottery/tsconfig": "workspace:*",
+    "@types/node": "^22.9.0",
+    "prisma": "^6.1.0",
+    "typescript": "^5.6.3"
+  }
+}

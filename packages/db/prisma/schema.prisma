@@ -1,0 +1,44 @@
+// Stub schema for the sol-lottery indexer + frontend reads.
+// Real models land alongside the on-chain program design.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model LotteryRound {
+  id          String       @id @default(cuid())
+  roundId     BigInt       @unique
+  state       RoundState   @default(OPEN)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  transactions Transaction[]
+
+  @@index([state, createdAt])
+}
+
+model Transaction {
+  id          String        @id @default(cuid())
+  signature   String        @unique
+  slot        BigInt
+  blockTime   DateTime?
+  programIx   String
+  payload     Json
+  createdAt   DateTime      @default(now())
+
+  roundId     String?
+  round       LotteryRound? @relation(fields: [roundId], references: [id])
+
+  @@index([programIx, createdAt])
+}
+
+enum RoundState {
+  OPEN
+  DRAWING
+  SETTLED
+  CANCELED
+}

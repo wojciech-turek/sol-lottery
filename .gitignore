@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+.next/
+out/
+.turbo/
+
+# Anchor / Rust
+target/
+.anchor/
+test-ledger/
+**/*.rs.bk
+
+# Prisma
+packages/db/prisma/*.db
+packages/db/prisma/*.db-journal
+packages/db/src/generated/
+
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+!.env.*.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.example.json
+
+# TS / Next
+*.tsbuildinfo
+next-env.d.ts
+
+# Coverage
+coverage/
