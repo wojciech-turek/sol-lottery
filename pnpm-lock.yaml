@@ -224,6 +224,9 @@ importers:
       '@coral-xyz/anchor':
         specifier: ^0.32.1
         version: 0.32.1(typescript@5.9.3)
+      '@orao-network/solana-vrf':
+        specifier: ^0.8.0
+        version: 0.8.0(typescript@5.9.3)
       '@sol-lottery/db':
         specifier: workspace:*
         version: link:../packages/db
@@ -1201,6 +1204,19 @@ packages:
     resolution: {integrity: sha512-nn5ozdjYQpUCZlWGuxcJY/KpxkWQs4DcbMCmKojjyrYDEAGy4Ce19NN4v5MduafTwJlbKc99UA8YhSVqq9yPZA==}
     engines: {node: '>=12.4.0'}
     dev: true
+
+  /@orao-network/solana-vrf@0.8.0(typescript@5.9.3):
+    resolution: {integrity: sha512-hQVWImH4jeuNP2r1L31l1BnapabsWFfL0/Xe/jBZYvTRupGfQ62ThbfVlUb5QM19qAWJK2JHS7kqzYok58javg==}
+    dependencies:
+      '@coral-xyz/anchor': 0.32.1(typescript@5.9.3)
+      '@solana/web3.js': 1.98.4(typescript@5.9.3)
+      tweetnacl: 1.0.3
+    transitivePeerDependencies:
+      - bufferutil
+      - encoding
+      - typescript
+      - utf-8-validate
+    dev: false
 
   /@prisma/adapter-pg@7.8.0:
     resolution: {integrity: sha512-ygb3UkerK3v8MDpXVgCISdRNDozpxh6+JVJgiIGbSr5KBgz10LLf5ejUskPGoXlsIjxsOu6nuy1JVQr2EKGSlg==}
@@ -5238,6 +5254,10 @@ packages:
       '@turbo/windows-64': 2.9.9
       '@turbo/windows-arm64': 2.9.9
     dev: true
+
+  /tweetnacl@1.0.3:
+    resolution: {integrity: sha512-6rt+RN7aOi1nGMyC4Xa5DdYiukl2UWCbcJft7YhxReBGQD7OAM8Pbxw6YMo4r2diNEA8FEmu32YOn9rhaiE5yw==}
+    dev: false
 
   /type-check@0.4.0:
     resolution: {integrity: sha512-XleUoc9uwGXqjWwXaUTZAmzMcFZ5858QA2vvx1Ur5xIcixXIP+8LnFDgRplU30us6teqdlskFfu+ae4K79Ooew==}

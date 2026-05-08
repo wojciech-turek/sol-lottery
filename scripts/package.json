@@ -5,10 +5,12 @@
   "type": "module",
   "scripts": {
     "smoke:devnet": "tsx devnet-smoke.ts",
-    "smoke:devnet:orao": "tsx devnet-orao-smoke.ts"
+    "smoke:devnet:orao": "tsx devnet-orao-smoke.ts",
+    "test:devnet": "tsx devnet-comprehensive.ts"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.32.1",
+    "@orao-network/solana-vrf": "^0.8.0",
     "@solana/web3.js": "^1.95.4",
     "@sol-lottery/db": "workspace:*",
     "@sol-lottery/sdk": "workspace:*",

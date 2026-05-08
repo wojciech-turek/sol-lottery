@@ -162,18 +162,41 @@ export const oraoNetworkState = (): PublicKey =>
 export { ORAO_PROGRAM_ID };
 
 /**
- * Reads ORAO's randomness account.
+ * Reads ORAO's randomness account and returns the 64-byte randomness if
+ * it has been fulfilled, else null.
  *
- * Returns the raw account bytes if the account exists. **Cannot reliably
- * tell if the randomness has been fulfilled off-chain** — `RandomnessV2`'s
- * layout has variable-length prefix fields before the randomness slot, so
- * a fixed offset doesn't work, and we don't ship a Borsh deserializer for
- * ORAO's full struct.
+ * `RandomnessV2` has a variable-length prefix (`Vec<Pubkey>` of
+ * fulfillment authorities, an `Option<Callback>`, etc.) before the seed,
+ * so a fixed offset doesn't work. We exploit two layout invariants:
+ * - the `seed: [u8; 32]` field equals `round.to_bytes()` and is unique in
+ *   the account data;
+ * - the `randomness: [u8; 64]` follows the seed immediately;
+ * - a `Vec<Response>` length prefix (4 LE bytes) follows the randomness,
+ *   and "fulfilled" means `responses.len() > 0`.
  *
- * The reliable way to know if randomness is ready is to attempt
- * `consumeOraoResolution` and treat error code 6034 (`VrfNotFulfilled`)
- * as "not yet, retry". The on-chain ORAO deserializer is the source of
- * truth. See `scripts/devnet-orao-smoke.ts` for the retry pattern.
+ * Returns null if the account is missing, the seed isn't found, or the
+ * responses count is zero. Returns the 64-byte randomness otherwise.
+ */
+export async function fetchOraoRandomness(
+  connection: Connection,
+  round: PublicKey,
+): Promise<Buffer | null> {
+  const acct = await connection.getAccountInfo(oraoRandomnessAccount(round));
+  if (!acct) return null;
+  const seedBytes = round.toBuffer();
+  const seedOffset = acct.data.indexOf(seedBytes);
+  if (seedOffset < 0) return null;
+  const randomnessStart = seedOffset + seedBytes.length;
+  const responsesLenOffset = randomnessStart + 64;
+  if (acct.data.length < responsesLenOffset + 4) return null;
+  const responsesLen = acct.data.readUInt32LE(responsesLenOffset);
+  if (responsesLen === 0) return null; // not fulfilled yet
+  return Buffer.from(acct.data.subarray(randomnessStart, randomnessStart + 64));
+}
+
+/**
+ * Returns the raw `AccountInfo` for ORAO's randomness account, or null.
+ * Useful when callers want full control over deserialization.
  */
 export async function fetchOraoRandomnessAccount(
   connection: Connection,
