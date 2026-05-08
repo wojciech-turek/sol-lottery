@@ -2,8 +2,10 @@
   "extends": "@sol-lottery/tsconfig/node.json",
   "compilerOptions": {
     "outDir": "dist",
-    "rootDir": "src"
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "noEmit": true
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "../../target/idl/*.json", "../../target/types/*.ts"],
   "exclude": ["node_modules", "dist"]
 }

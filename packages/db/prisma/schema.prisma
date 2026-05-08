@@ -1,5 +1,9 @@
-// Stub schema for the sol-lottery indexer + frontend reads.
-// Real models land alongside the on-chain program design.
+// Prisma schema for sol-lottery.
+//
+// Models are aligned with the on-chain events emitted by the program
+// (`programs/lottery/src/events.rs`). The indexer (`apps/indexer`) listens
+// for those events and writes rows here; the frontend (`apps/web`) reads
+// them.
 
 generator client {
   provider = "prisma-client-js"
@@ -10,35 +14,122 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model LotteryRound {
-  id          String       @id @default(cuid())
-  roundId     BigInt       @unique
-  state       RoundState   @default(OPEN)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  transactions Transaction[]
+// ---------------------------------------------------------------------------
+// Lottery configurations and their state transitions
+// ---------------------------------------------------------------------------
 
-  @@index([state, createdAt])
+model Lottery {
+  /// The Lottery PDA (base58).
+  pubkey               String         @id
+  chainId              BigInt         @unique
+  name                 String
+  state                LotteryState
+  prizeKind            PrizeKind
+  ticketPriceLamports  BigInt
+  durationSeconds      BigInt
+  autoRollover         Boolean        @default(false)
+  admin                String
+  createdAt            DateTime
+  updatedAt            DateTime       @updatedAt
+
+  rounds               LotteryRound[]
+  stateChanges         LotteryStateLog[]
+
+  @@index([state])
 }
 
-model Transaction {
-  id          String        @id @default(cuid())
-  signature   String        @unique
-  slot        BigInt
-  blockTime   DateTime?
-  programIx   String
-  payload     Json
-  createdAt   DateTime      @default(now())
+enum LotteryState {
+  ACTIVE
+  PAUSED
+  PENDING_DISABLE
+  DISABLED
+}
 
-  roundId     String?
-  round       LotteryRound? @relation(fields: [roundId], references: [id])
+enum PrizeKind {
+  SOL
+  PHYSICAL
+}
 
-  @@index([programIx, createdAt])
+model LotteryStateLog {
+  id            String       @id @default(cuid())
+  lotteryPubkey String
+  lottery       Lottery      @relation(fields: [lotteryPubkey], references: [pubkey])
+  previousState LotteryState
+  newState      LotteryState
+  at            DateTime
+  txSignature   String
+
+  @@index([lotteryPubkey, at])
+}
+
+// ---------------------------------------------------------------------------
+// Rounds and their lifecycle
+// ---------------------------------------------------------------------------
+
+model LotteryRound {
+  /// The Round PDA (base58).
+  pubkey                    String              @id
+  lotteryPubkey             String
+  lottery                   Lottery             @relation(fields: [lotteryPubkey], references: [pubkey])
+  index                     BigInt
+  state                     RoundState          @default(OPEN)
+  ticketPriceLamports       BigInt
+  durationSeconds           BigInt
+  startedAt                 DateTime
+  effectiveEnd              DateTime
+  pausedTotalSeconds        BigInt              @default(0)
+  ticketsSold               BigInt              @default(0)
+  winner                    String?
+  winningTicketIndex        BigInt?
+  poolAmountLamports        BigInt?
+  totalDistributedLamports  BigInt?
+  resolvedAt                DateTime?
+
+  tickets                   TicketPurchase[]
+
+  @@unique([lotteryPubkey, index])
+  @@index([state])
 }
 
 enum RoundState {
   OPEN
-  DRAWING
-  SETTLED
-  CANCELED
+  CLOSED
+  AWAITING_VRF
+  RESOLVED
+}
+
+// ---------------------------------------------------------------------------
+// Per-event transactional records (cheap to query, easy to replay)
+// ---------------------------------------------------------------------------
+
+model TicketPurchase {
+  txSignature        String       @id
+  roundPubkey        String
+  round              LotteryRound @relation(fields: [roundPubkey], references: [pubkey])
+  buyer              String
+  quantity           BigInt
+  totalPaidLamports  BigInt
+  runningTotal       BigInt
+  at                 DateTime
+
+  @@index([roundPubkey, at])
+  @@index([buyer])
+}
+
+model AdminTransfer {
+  txSignature   String   @id
+  previousAdmin String
+  newAdmin      String
+  at            DateTime
+}
+
+/// Raw mirror of every program-emitted event; useful for replay/debug.
+model RawEvent {
+  txSignature  String   @id
+  slot         BigInt
+  blockTime    DateTime?
+  eventName    String
+  payload      Json
+
+  @@index([eventName, slot])
 }

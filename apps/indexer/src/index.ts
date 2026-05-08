@@ -16,13 +16,15 @@ async function main() {
 
   connection.onLogs(programId, async (logs, ctx) => {
     console.log(`[indexer] sig=${logs.signature} slot=${ctx.slot} err=${logs.err ?? 'ok'}`);
-    // Persist a raw record. Decoding instructions lands once the program ships.
+    // Mirror the raw event stream into RawEvent. Decoding into typed
+    // models (Lottery, LotteryRound, TicketPurchase, …) lands when this
+    // worker grows an Anchor event parser using `@sol-lottery/sdk`.
     try {
-      await prisma.transaction.create({
+      await prisma.rawEvent.create({
         data: {
-          signature: logs.signature,
+          txSignature: logs.signature,
           slot: BigInt(ctx.slot),
-          programIx: 'unknown',
+          eventName: 'unknown',
           payload: { logs: logs.logs, err: logs.err ?? null },
         },
       });

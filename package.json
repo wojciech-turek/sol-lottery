@@ -2,6 +2,7 @@
   "name": "sol-lottery",
   "version": "0.0.0",
   "private": true,
+  "type": "commonjs",
   "packageManager": "pnpm@8.12.1",
   "engines": {
     "node": ">=20"
@@ -16,10 +17,21 @@
     "db:migrate": "pnpm --filter @sol-lottery/db db:migrate",
     "anchor:build": "anchor build",
     "anchor:test": "anchor test",
+    "anchor:test:run": "mocha --node-option=import=tsx --extension ts -t 1000000 'tests/**/*.ts'",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,md,json}\""
   },
   "devDependencies": {
+    "@coral-xyz/anchor": "^0.32.0",
+    "@solana/web3.js": "^1.95.4",
+    "@types/bn.js": "^5.1.6",
+    "@types/chai": "^4.3.20",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.9.0",
+    "bn.js": "^5.2.1",
+    "chai": "^4.5.0",
+    "mocha": "^10.8.2",
     "prettier": "^3.3.3",
+    "tsx": "^4.19.2",
     "turbo": "^2.3.0",
     "typescript": "^5.6.3"
   }
