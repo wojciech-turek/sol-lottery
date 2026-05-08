@@ -115,6 +115,7 @@ pub fn open_round_handler(ctx: Context<OpenRound>, round_index: u64) -> Result<(
     round.paused_at = None;
     round.paused_total_seconds = 0;
     round.tickets_sold = 0;
+    round.donated_lamports = 0;
     round.current_shard = 0;
     round.max_shard = 0;
     round.winner = None;

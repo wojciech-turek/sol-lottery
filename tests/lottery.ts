@@ -262,6 +262,9 @@ describe('sol-lottery', () => {
         round: fx.round,
         winnerShard: fx.shard0,
         admin: admin.publicKey,
+        nextRound: null,
+        nextShard: null,
+        systemProgram: null,
       })
       .remainingAccounts([
         { pubkey: expectedWinner, isWritable: true, isSigner: false },
@@ -370,6 +373,9 @@ describe('sol-lottery', () => {
         round: fx.round,
         winnerShard: fx.shard0,
         admin: admin.publicKey,
+        nextRound: null,
+        nextShard: null,
+        systemProgram: null,
       })
       .remainingAccounts([
         { pubkey: team.publicKey, isWritable: true, isSigner: false },
@@ -448,6 +454,9 @@ describe('sol-lottery', () => {
         vrfRequest: vrfPda(fx.round),
         winnerShard: fx.shard0,
         caller: cron.publicKey,
+        nextRound: null,
+        nextShard: null,
+        systemProgram: null,
       })
       .remainingAccounts([
         { pubkey: buyer.publicKey, isWritable: true, isSigner: false },
@@ -505,6 +514,9 @@ describe('sol-lottery', () => {
         round: fx.round,
         winnerShard: fx.shard0,
         admin: admin.publicKey,
+        nextRound: null,
+        nextShard: null,
+        systemProgram: null,
       })
       .remainingAccounts([
         { pubkey: buyer.publicKey, isWritable: true, isSigner: false },
@@ -561,6 +573,9 @@ describe('sol-lottery', () => {
         round: fx.round,
         winnerShard: fx.shard0,
         admin: admin.publicKey,
+        nextRound: null,
+        nextShard: null,
+        systemProgram: null,
       })
       .remainingAccounts([
         { pubkey: buyer.publicKey, isWritable: true, isSigner: false },
@@ -594,6 +609,149 @@ describe('sol-lottery', () => {
   });
 
   // ============================================================
+  // 6b. Atomic rollover: resolve_round opens the next round inline
+  // ============================================================
+
+  it('atomically opens the next round when resolve carries the rollover accounts', async () => {
+    const dev = Keypair.generate();
+    await airdrop(conn, dev.publicKey, 0.01);
+    const splits: SplitInput[] = [
+      { label: 'pool', destination: PublicKey.default, bps: 9000, isPool: true },
+      { label: 'dev', destination: dev.publicKey, bps: 1000, isPool: false },
+    ];
+    const fx = await createAndOpen({
+      name: 'atomic-rollover',
+      durationSeconds: 60,
+      ticketPriceSol: 0.05,
+      splits,
+      autoRollover: true,
+    });
+
+    const buyer = Keypair.generate();
+    await airdrop(conn, buyer.publicKey, 1);
+    await buy(fx, buyer, 1);
+
+    const round2 = roundPda(fx.lottery, 2n);
+    const shard2_0 = shardPda(round2, 0);
+
+    const seed = Buffer.alloc(32);
+    await program.methods
+      .resolveRound(Array.from(seed))
+      .accounts({
+        globalConfig: globalConfigPda(),
+        lottery: fx.lottery,
+        round: fx.round,
+        winnerShard: fx.shard0,
+        admin: admin.publicKey,
+        nextRound: round2,
+        nextShard: shard2_0,
+        systemProgram: SystemProgram.programId,
+      })
+      .remainingAccounts([
+        { pubkey: buyer.publicKey, isWritable: true, isSigner: false },
+        { pubkey: dev.publicKey, isWritable: true, isSigner: false },
+      ])
+      .signers([admin])
+      .rpc();
+
+    // Round 1 resolved.
+    const r1 = await program.account.round.fetch(fx.round);
+    expect(r1.state).to.deep.equal({ resolved: {} });
+
+    // Round 2 was created in the same tx.
+    const r2 = await program.account.round.fetch(round2);
+    expect(r2.state).to.deep.equal({ open: {} });
+    expect(r2.index.toNumber()).to.equal(2);
+    expect(r2.ticketsSold.toNumber()).to.equal(0);
+
+    // Lottery's current round pointer advanced.
+    const lottery = await program.account.lottery.fetch(fx.lottery);
+    expect(lottery.currentRoundIndex.toNumber()).to.equal(2);
+
+    // Round 2 accepts a buy immediately — proves the shard is also live.
+    const buyer2 = Keypair.generate();
+    await airdrop(conn, buyer2.publicKey, 1);
+    await program.methods
+      .buyTickets(new BN(1))
+      .accounts({
+        lottery: fx.lottery,
+        round: round2,
+        currentShard: shard2_0,
+        buyer: buyer2.publicKey,
+        systemProgram: SystemProgram.programId,
+      })
+      .signers([buyer2])
+      .rpc();
+
+    const r2After = await program.account.round.fetch(round2);
+    expect(r2After.ticketsSold.toNumber()).to.equal(1);
+  });
+
+  // ============================================================
+  // 6c. begin_disable suppresses atomic rollover
+  // ============================================================
+
+  it('skips atomic rollover when lottery is in PendingDisable', async () => {
+    const dev = Keypair.generate();
+    await airdrop(conn, dev.publicKey, 0.01);
+    const splits: SplitInput[] = [
+      { label: 'pool', destination: PublicKey.default, bps: 9000, isPool: true },
+      { label: 'dev', destination: dev.publicKey, bps: 1000, isPool: false },
+    ];
+    const fx = await createAndOpen({
+      name: 'rollover-after-disable',
+      durationSeconds: 60,
+      ticketPriceSol: 0.05,
+      splits,
+      autoRollover: true,
+    });
+
+    const buyer = Keypair.generate();
+    await airdrop(conn, buyer.publicKey, 1);
+    await buy(fx, buyer, 1);
+
+    // Mark for disable mid-round.
+    await program.methods
+      .beginDisableLottery()
+      .accounts({
+        globalConfig: globalConfigPda(),
+        lottery: fx.lottery,
+        admin: admin.publicKey,
+      })
+      .signers([admin])
+      .rpc();
+
+    const round2 = roundPda(fx.lottery, 2n);
+    const shard2_0 = shardPda(round2, 0);
+
+    const seed = Buffer.alloc(32);
+    await program.methods
+      .resolveRound(Array.from(seed))
+      .accounts({
+        globalConfig: globalConfigPda(),
+        lottery: fx.lottery,
+        round: fx.round,
+        winnerShard: fx.shard0,
+        admin: admin.publicKey,
+        nextRound: round2,
+        nextShard: shard2_0,
+        systemProgram: SystemProgram.programId,
+      })
+      .remainingAccounts([
+        { pubkey: buyer.publicKey, isWritable: true, isSigner: false },
+        { pubkey: dev.publicKey, isWritable: true, isSigner: false },
+      ])
+      .signers([admin])
+      .rpc();
+
+    // Lottery is now Disabled and round 2 was NOT created.
+    const lottery = await program.account.lottery.fetch(fx.lottery);
+    expect(lottery.state).to.deep.equal({ disabled: {} });
+    expect(lottery.currentRoundIndex.toNumber()).to.equal(1);
+    expect(await conn.getAccountInfo(round2)).to.equal(null);
+  });
+
+  // ============================================================
   // 7. Auto-rollover refused when flag is OFF
   // ============================================================
 
@@ -624,6 +782,9 @@ describe('sol-lottery', () => {
         round: fx.round,
         winnerShard: fx.shard0,
         admin: admin.publicKey,
+        nextRound: null,
+        nextShard: null,
+        systemProgram: null,
       })
       .remainingAccounts([
         { pubkey: buyer.publicKey, isWritable: true, isSigner: false },
@@ -811,6 +972,9 @@ describe('sol-lottery', () => {
           round: fx.round,
           winnerShard: fx.shard0,
           admin: admin.publicKey,
+          nextRound: null,
+          nextShard: null,
+          systemProgram: null,
         })
         .remainingAccounts([
           { pubkey: buyer.publicKey, isWritable: true, isSigner: false }, // pool ok
@@ -902,6 +1066,115 @@ describe('sol-lottery', () => {
   });
 
   // ============================================================
+  // 12c. Donations top up the prize pool, paid 100% to the winner
+  // ============================================================
+
+  it('routes donations directly to the winner on top of the pool split', async () => {
+    const dev = Keypair.generate();
+    await airdrop(conn, dev.publicKey, 0.01);
+    const splits: SplitInput[] = [
+      { label: 'pool', destination: PublicKey.default, bps: 5000, isPool: true },
+      { label: 'dev', destination: dev.publicKey, bps: 5000, isPool: false },
+    ];
+    const fx = await createAndOpen({
+      name: 'donation',
+      durationSeconds: 60,
+      ticketPriceSol: 0.1,
+      splits,
+    });
+
+    const buyer = Keypair.generate();
+    await airdrop(conn, buyer.publicKey, 5);
+    await buy(fx, buyer, 4); // gross = 0.4 SOL → pool 0.2, dev 0.2
+
+    // Donor (= admin here, but anyone is allowed) tops up the pool by 1 SOL.
+    const donationLamports = 1 * LAMPORTS_PER_SOL;
+    await program.methods
+      .donateToRound(new BN(donationLamports))
+      .accounts({
+        lottery: fx.lottery,
+        round: fx.round,
+        donor: admin.publicKey,
+        systemProgram: SystemProgram.programId,
+      })
+      .signers([admin])
+      .rpc();
+
+    const round = await program.account.round.fetch(fx.round);
+    expect(round.donatedLamports.toString()).to.equal(donationLamports.toString());
+
+    const balBefore = {
+      buyer: await conn.getBalance(buyer.publicKey),
+      dev: await conn.getBalance(dev.publicKey),
+    };
+
+    const seed = Buffer.alloc(32);
+    seed.writeBigUInt64LE(0n, 0);
+    await program.methods
+      .resolveRound(Array.from(seed))
+      .accounts({
+        globalConfig: globalConfigPda(),
+        lottery: fx.lottery,
+        round: fx.round,
+        winnerShard: fx.shard0,
+        admin: admin.publicKey,
+        nextRound: null,
+        nextShard: null,
+        systemProgram: null,
+      })
+      .remainingAccounts([
+        { pubkey: buyer.publicKey, isWritable: true, isSigner: false },
+        { pubkey: dev.publicKey, isWritable: true, isSigner: false },
+      ])
+      .signers([admin])
+      .rpc();
+
+    const grossSales = 4 * 0.1 * LAMPORTS_PER_SOL;
+    const expectedDev = grossSales * 0.5;
+    const expectedWinner = grossSales * 0.5 + donationLamports;
+
+    expect(await conn.getBalance(dev.publicKey)).to.equal(balBefore.dev + expectedDev);
+    expect(await conn.getBalance(buyer.publicKey)).to.equal(balBefore.buyer + expectedWinner);
+  });
+
+  // ============================================================
+  // 12d. Donations rejected on physical-prize lotteries (no pool slot)
+  // ============================================================
+
+  it('rejects donations on lotteries without a pool split', async () => {
+    const team = Keypair.generate();
+    await airdrop(conn, team.publicKey, 0.01);
+    const splits: SplitInput[] = [
+      { label: 'team', destination: team.publicKey, bps: 10000, isPool: false },
+    ];
+    const fx = await createAndOpen({
+      name: 'no-pool-donate',
+      durationSeconds: 60,
+      ticketPriceSol: 0.05,
+      splits,
+      physical: true,
+    });
+
+    let threw = false;
+    try {
+      await program.methods
+        .donateToRound(new BN(LAMPORTS_PER_SOL / 10))
+        .accounts({
+          lottery: fx.lottery,
+          round: fx.round,
+          donor: admin.publicKey,
+          systemProgram: SystemProgram.programId,
+        })
+        .signers([admin])
+        .rpc();
+    } catch (err: any) {
+      threw = true;
+      expect(String(err)).to.match(/DonationRequiresPoolSplit/);
+    }
+    expect(threw).to.equal(true);
+  });
+
+  // ============================================================
   // 13. close_shard returns rent after resolve
   // ============================================================
 
@@ -932,6 +1205,9 @@ describe('sol-lottery', () => {
         round: fx.round,
         winnerShard: fx.shard0,
         admin: admin.publicKey,
+        nextRound: null,
+        nextShard: null,
+        systemProgram: null,
       })
       .remainingAccounts([
         { pubkey: buyer.publicKey, isWritable: true, isSigner: false },

@@ -61,6 +61,9 @@ pub struct Round {
 
     /// Lifetime ticket count for this round.
     pub tickets_sold: u64,
+    /// Cumulative SOL donated to this round's prize pool via `donate_to_round`.
+    /// Added on top of the `is_pool` split's share at resolve.
+    pub donated_lamports: u64,
     /// Index of the active TicketShard PDA receiving new ticket writes.
     /// Advanced by `allocate_shard` when the previous shard fills.
     pub current_shard: u32,

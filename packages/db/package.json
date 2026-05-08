@@ -18,13 +18,16 @@
     "build": "echo \"@sol-lottery/db is consumed as TS source\""
   },
   "dependencies": {
-    "@prisma/client": "^6.1.0"
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
+    "dotenv": "^16.4.7"
   },
   "devDependencies": {
     "@sol-lottery/eslint-config": "workspace:*",
     "@sol-lottery/tsconfig": "workspace:*",
     "@types/node": "^22.9.0",
-    "prisma": "^6.1.0",
+    "prisma": "^7.8.0",
+    "tsx": "^4.19.2",
     "typescript": "^5.6.3"
   }
 }

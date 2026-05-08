@@ -1,9 +1,9 @@
 // Prisma schema for sol-lottery.
 //
-// Models are aligned with the on-chain events emitted by the program
-// (`programs/lottery/src/events.rs`). The indexer (`apps/indexer`) listens
-// for those events and writes rows here; the frontend (`apps/web`) reads
-// them.
+// Convention: Prisma models stay PascalCase and fields stay camelCase
+// (idiomatic for TypeScript), but every table and column is mapped to
+// snake_case at the database layer via `@@map` / `@map`. That gives us
+// idiomatic Postgres on disk and idiomatic JS in code.
 
 generator client {
   provider = "prisma-client-js"
@@ -11,7 +11,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // ---------------------------------------------------------------------------
@@ -19,23 +18,23 @@ datasource db {
 // ---------------------------------------------------------------------------
 
 model Lottery {
-  /// The Lottery PDA (base58).
   pubkey               String         @id
-  chainId              BigInt         @unique
+  lotteryIndex         BigInt         @unique                @map("lottery_index")
   name                 String
   state                LotteryState
-  prizeKind            PrizeKind
-  ticketPriceLamports  BigInt
-  durationSeconds      BigInt
-  autoRollover         Boolean        @default(false)
+  prizeKind            PrizeKind                              @map("prize_kind")
+  ticketPriceLamports  BigInt                                 @map("ticket_price_lamports")
+  durationSeconds      BigInt                                 @map("duration_seconds")
+  autoRollover         Boolean        @default(false)         @map("auto_rollover")
   admin                String
-  createdAt            DateTime
-  updatedAt            DateTime       @updatedAt
+  createdAt            DateTime                               @map("created_at")
+  updatedAt            DateTime       @updatedAt              @map("updated_at")
 
   rounds               LotteryRound[]
   stateChanges         LotteryStateLog[]
 
   @@index([state])
+  @@map("lottery")
 }
 
 enum LotteryState {
@@ -43,23 +42,28 @@ enum LotteryState {
   PAUSED
   PENDING_DISABLE
   DISABLED
+
+  @@map("lottery_state")
 }
 
 enum PrizeKind {
   SOL
   PHYSICAL
+
+  @@map("prize_kind")
 }
 
 model LotteryStateLog {
   id            String       @id @default(cuid())
-  lotteryPubkey String
+  lotteryPubkey String                                @map("lottery_pubkey")
   lottery       Lottery      @relation(fields: [lotteryPubkey], references: [pubkey])
-  previousState LotteryState
-  newState      LotteryState
+  previousState LotteryState                          @map("previous_state")
+  newState      LotteryState                          @map("new_state")
   at            DateTime
-  txSignature   String
+  txSignature   String                                @map("tx_signature")
 
   @@index([lotteryPubkey, at])
+  @@map("lottery_state_log")
 }
 
 // ---------------------------------------------------------------------------
@@ -67,28 +71,30 @@ model LotteryStateLog {
 // ---------------------------------------------------------------------------
 
 model LotteryRound {
-  /// The Round PDA (base58).
   pubkey                    String              @id
-  lotteryPubkey             String
+  lotteryPubkey             String                                              @map("lottery_pubkey")
   lottery                   Lottery             @relation(fields: [lotteryPubkey], references: [pubkey])
   index                     BigInt
   state                     RoundState          @default(OPEN)
-  ticketPriceLamports       BigInt
-  durationSeconds           BigInt
-  startedAt                 DateTime
-  effectiveEnd              DateTime
-  pausedTotalSeconds        BigInt              @default(0)
-  ticketsSold               BigInt              @default(0)
+  ticketPriceLamports       BigInt                                              @map("ticket_price_lamports")
+  durationSeconds           BigInt                                              @map("duration_seconds")
+  startedAt                 DateTime                                            @map("started_at")
+  effectiveEnd              DateTime                                            @map("effective_end")
+  pausedTotalSeconds        BigInt              @default(0)                     @map("paused_total_seconds")
+  ticketsSold               BigInt              @default(0)                     @map("tickets_sold")
+  donatedLamports           BigInt              @default(0)                     @map("donated_lamports")
   winner                    String?
-  winningTicketIndex        BigInt?
-  poolAmountLamports        BigInt?
-  totalDistributedLamports  BigInt?
-  resolvedAt                DateTime?
+  winningTicketIndex        BigInt?                                             @map("winning_ticket_index")
+  poolAmountLamports        BigInt?                                             @map("pool_amount_lamports")
+  totalDistributedLamports  BigInt?                                             @map("total_distributed_lamports")
+  resolvedAt                DateTime?                                           @map("resolved_at")
 
   tickets                   TicketPurchase[]
+  donations                 Donation[]
 
   @@unique([lotteryPubkey, index])
   @@index([state])
+  @@map("lottery_round")
 }
 
 enum RoundState {
@@ -96,40 +102,60 @@ enum RoundState {
   CLOSED
   AWAITING_VRF
   RESOLVED
+
+  @@map("round_state")
 }
 
 // ---------------------------------------------------------------------------
-// Per-event transactional records (cheap to query, easy to replay)
+// Per-event transactional records
 // ---------------------------------------------------------------------------
 
 model TicketPurchase {
-  txSignature        String       @id
-  roundPubkey        String
+  txSignature        String       @id                          @map("tx_signature")
+  roundPubkey        String                                    @map("round_pubkey")
   round              LotteryRound @relation(fields: [roundPubkey], references: [pubkey])
   buyer              String
   quantity           BigInt
-  totalPaidLamports  BigInt
-  runningTotal       BigInt
+  totalPaidLamports  BigInt                                    @map("total_paid_lamports")
+  runningTotal       BigInt                                    @map("running_total")
   at                 DateTime
 
   @@index([roundPubkey, at])
   @@index([buyer])
+  @@map("ticket_purchase")
+}
+
+model Donation {
+  txSignature           String       @id                                @map("tx_signature")
+  roundPubkey           String                                          @map("round_pubkey")
+  round                 LotteryRound @relation(fields: [roundPubkey], references: [pubkey])
+  donor                 String
+  amountLamports        BigInt                                          @map("amount_lamports")
+  runningTotalLamports  BigInt                                          @map("running_total_lamports")
+  at                    DateTime
+
+  @@index([roundPubkey, at])
+  @@index([donor])
+  @@map("donation")
 }
 
 model AdminTransfer {
-  txSignature   String   @id
-  previousAdmin String
-  newAdmin      String
+  txSignature   String   @id                @map("tx_signature")
+  previousAdmin String                      @map("previous_admin")
+  newAdmin      String                      @map("new_admin")
   at            DateTime
+
+  @@map("admin_transfer")
 }
 
 /// Raw mirror of every program-emitted event; useful for replay/debug.
 model RawEvent {
-  txSignature  String   @id
+  txSignature  String   @id              @map("tx_signature")
   slot         BigInt
-  blockTime    DateTime?
-  eventName    String
+  blockTime    DateTime?                 @map("block_time")
+  eventName    String                    @map("event_name")
   payload      Json
 
   @@index([eventName, slot])
+  @@map("raw_event")
 }

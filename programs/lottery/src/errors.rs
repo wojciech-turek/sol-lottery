@@ -89,6 +89,10 @@ pub enum LotteryError {
     VrfAlreadyRequested,
     #[msg("Wrong destination pubkey for split at this index.")]
     WrongSplitDestination,
+    #[msg("Donations require a lottery with a pool split (Sol prize kind).")]
+    DonationRequiresPoolSplit,
+    #[msg("Donations are only accepted while the round is Open or Closed.")]
+    DonationRoundNotAcceptingFunds,
 
     // --- Math ---
     #[msg("Arithmetic overflow.")]

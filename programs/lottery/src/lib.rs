@@ -137,6 +137,13 @@ pub mod lottery {
         buy_tickets_handler(ctx, quantity)
     }
 
+    /// Top up the round's prize pool. The donation goes 100% to the winner
+    /// at resolve, on top of the percentages from ticket sales. Anyone may
+    /// donate; the lottery must have a pool split (i.e. a Sol-prize lottery).
+    pub fn donate_to_round(ctx: Context<DonateToRound>, amount: u64) -> Result<()> {
+        donate_to_round_handler(ctx, amount)
+    }
+
     pub fn allocate_shard(ctx: Context<AllocateShard>, new_shard_index: u32) -> Result<()> {
         allocate_shard_handler(ctx, new_shard_index)
     }

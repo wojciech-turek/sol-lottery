@@ -7,6 +7,7 @@ use anchor_lang::prelude::*;
 use crate::errors::LotteryError;
 use crate::events::RoundResolved;
 use crate::instructions::resolve_round::distribute_lamports;
+use crate::instructions::shared::try_atomic_rollover;
 use crate::state::{
     GlobalConfig, Lottery, LotteryState, Round, RoundState, TicketShard, VrfRequest,
 };
@@ -44,7 +45,19 @@ pub struct ConsumeResolution<'info> {
     )]
     pub winner_shard: Account<'info, TicketShard>,
 
+    #[account(mut)]
     pub caller: Signer<'info>,
+
+    /// Optional rollover target — see `resolve_round.rs` for semantics.
+    /// CHECK: validated and initialized inside `try_atomic_rollover`.
+    #[account(mut)]
+    pub next_round: Option<UncheckedAccount<'info>>,
+
+    /// CHECK: validated and initialized inside `try_atomic_rollover`.
+    #[account(mut)]
+    pub next_shard: Option<UncheckedAccount<'info>>,
+
+    pub system_program: Option<Program<'info, System>>,
 }
 
 pub fn consume_resolution_handler<'info>(
@@ -89,12 +102,14 @@ pub fn consume_resolution_handler<'info>(
     let gross = ticket_price
         .checked_mul(tickets_sold)
         .ok_or(LotteryError::MathOverflow)?;
+    let donated = ctx.accounts.round.donated_lamports;
 
     let (pool_amount, total_distributed) = distribute_lamports(
         &ctx.accounts.round,
         ctx.remaining_accounts,
         &splits,
         gross,
+        donated,
         winner,
     )?;
 
@@ -125,5 +140,15 @@ pub fn consume_resolution_handler<'info>(
         total_distributed_lamports: total_distributed,
         at: now,
     });
+
+    if let Some(sys) = ctx.accounts.system_program.as_ref() {
+        try_atomic_rollover(
+            &mut ctx.accounts.lottery,
+            &ctx.accounts.next_round,
+            &ctx.accounts.next_shard,
+            ctx.accounts.caller.to_account_info(),
+            sys.to_account_info(),
+        )?;
+    }
     Ok(())
 }

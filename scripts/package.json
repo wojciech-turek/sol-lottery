@@ -1,25 +1,22 @@
 {
-  "name": "indexer",
+  "name": "scripts",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "start": "node dist/index.js",
-    "build": "tsc -p tsconfig.json",
-    "lint": "eslint src",
-    "typecheck": "tsc --noEmit"
+    "smoke:devnet": "tsx devnet-smoke.ts",
+    "smoke:devnet:orao": "tsx devnet-orao-smoke.ts"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.32.1",
     "@solana/web3.js": "^1.95.4",
     "@sol-lottery/db": "workspace:*",
     "@sol-lottery/sdk": "workspace:*",
+    "bn.js": "^5.2.1",
     "dotenv": "^16.4.7"
   },
   "devDependencies": {
-    "@sol-lottery/eslint-config": "workspace:*",
-    "@sol-lottery/tsconfig": "workspace:*",
+    "@types/bn.js": "^5.1.6",
     "@types/node": "^22.9.0",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3"

@@ -72,6 +72,16 @@ pub struct RoundResolved {
 }
 
 #[event]
+pub struct DonationReceived {
+    pub round: Pubkey,
+    pub donor: Pubkey,
+    pub amount_lamports: u64,
+    /// Cumulative donations for this round after this event.
+    pub running_total_lamports: u64,
+    pub at: i64,
+}
+
+#[event]
 pub struct ShardClosed {
     pub round: Pubkey,
     pub shard_index: u32,

@@ -21,6 +21,7 @@ use anchor_lang::prelude::*;
 
 use crate::errors::LotteryError;
 use crate::events::RoundResolved;
+use crate::instructions::shared::try_atomic_rollover;
 use crate::state::{
     GlobalConfig, Lottery, LotteryState, Round, RoundState, Split, TicketShard,
 };
@@ -58,7 +59,21 @@ pub struct ResolveRound<'info> {
     )]
     pub winner_shard: Account<'info, TicketShard>,
 
+    #[account(mut)]
     pub admin: Signer<'info>,
+
+    /// Optional rollover target — the next Round PDA. Pass alongside
+    /// `next_shard` and `system_program` to atomically open round N+1.
+    /// CHECK: validated and initialized inside `try_atomic_rollover`.
+    #[account(mut)]
+    pub next_round: Option<UncheckedAccount<'info>>,
+
+    /// Optional rollover target — shard 0 for the next round.
+    /// CHECK: validated and initialized inside `try_atomic_rollover`.
+    #[account(mut)]
+    pub next_shard: Option<UncheckedAccount<'info>>,
+
+    pub system_program: Option<Program<'info, System>>,
 }
 
 pub fn resolve_round_handler<'info>(
@@ -110,12 +125,14 @@ pub fn resolve_round_handler<'info>(
     let gross = ticket_price
         .checked_mul(tickets_sold)
         .ok_or(LotteryError::MathOverflow)?;
+    let donated = ctx.accounts.round.donated_lamports;
 
     let (pool_amount, total_distributed) = distribute_lamports(
         &ctx.accounts.round,
         ctx.remaining_accounts,
         &splits,
         gross,
+        donated,
         winner,
     )?;
 
@@ -147,12 +164,28 @@ pub fn resolve_round_handler<'info>(
         total_distributed_lamports: total_distributed,
         at: now,
     });
+
+    // Atomic auto-rollover: open the next round in the same tx if the
+    // caller asked for it and the lottery is configured for it.
+    if let Some(sys) = ctx.accounts.system_program.as_ref() {
+        try_atomic_rollover(
+            &mut ctx.accounts.lottery,
+            &ctx.accounts.next_round,
+            &ctx.accounts.next_shard,
+            ctx.accounts.admin.to_account_info(),
+            sys.to_account_info(),
+        )?;
+    }
     Ok(())
 }
 
 /// Iterates over `splits` in order, validating each destination against the
-/// matching remaining_account, and transferring `gross * bps / 10_000` from
-/// the Round account to that destination.
+/// matching remaining_account, and transferring lamports from the Round
+/// account to that destination.
+///
+/// Per-split share = `gross * bps / 10_000`. The `is_pool` split additionally
+/// receives the entire `donated` total (donations bypass the percentages
+/// and go straight to the winner).
 ///
 /// Returns `(pool_amount, total_distributed)` for event emission.
 pub(crate) fn distribute_lamports<'info>(
@@ -160,6 +193,7 @@ pub(crate) fn distribute_lamports<'info>(
     accounts: &[AccountInfo<'info>],
     splits: &[Split],
     gross: u64,
+    donated: u64,
     winner: Pubkey,
 ) -> Result<(u64, u64)> {
     let mut total: u64 = 0;
@@ -175,10 +209,17 @@ pub(crate) fn distribute_lamports<'info>(
         };
         require_keys_eq!(dest.key(), expected, LotteryError::WrongSplitDestination);
 
-        let amount = ((gross as u128)
+        let mut amount = ((gross as u128)
             .checked_mul(split.bps as u128)
             .ok_or(LotteryError::MathOverflow)?
             / 10_000u128) as u64;
+
+        // Donations are added on top of the pool share (winner-only).
+        if split.is_pool {
+            amount = amount
+                .checked_add(donated)
+                .ok_or(LotteryError::MathOverflow)?;
+        }
 
         if amount == 0 {
             continue;
