@@ -1,10 +1,27 @@
-import { AnchorProvider, Program, type Wallet } from '@coral-xyz/anchor';
+import { AnchorProvider, Program } from '@coral-xyz/anchor';
 import {
   AccountMeta,
   Connection,
   PublicKey,
   SystemProgram,
+  type Transaction,
+  type VersionedTransaction,
 } from '@solana/web3.js';
+
+/**
+ * Loose wallet shape accepted by `createProgram`. Matches both Anchor's
+ * NodeWallet (Node-side) and `@solana/wallet-adapter-react`'s AnchorWallet
+ * (browser). We avoid importing `@coral-xyz/anchor`'s `Wallet` directly
+ * because that's the NodeWallet class, which the browser adapter doesn't
+ * extend.
+ */
+export interface AnchorReadyWallet {
+  publicKey: PublicKey;
+  signTransaction<T extends Transaction | VersionedTransaction>(tx: T): Promise<T>;
+  signAllTransactions<T extends Transaction | VersionedTransaction>(
+    txs: T[],
+  ): Promise<T[]>;
+}
 
 import lotteryIdl from '../../../target/idl/lottery.json';
 import type { Lottery } from '../../../target/types/lottery';
@@ -16,8 +33,15 @@ export type { Lottery } from '../../../target/types/lottery';
 export const PROGRAM_ID = new PublicKey((lotteryIdl as { address: string }).address);
 
 /** Builds a typed `Program<Lottery>` against the provided connection + wallet. */
-export function createProgram(connection: Connection, wallet: Wallet): LotteryProgram {
-  const provider = new AnchorProvider(connection, wallet, AnchorProvider.defaultOptions());
+export function createProgram(
+  connection: Connection,
+  wallet: AnchorReadyWallet,
+): LotteryProgram {
+  const provider = new AnchorProvider(
+    connection,
+    wallet as unknown as ConstructorParameters<typeof AnchorProvider>[1],
+    AnchorProvider.defaultOptions(),
+  );
   return new Program<Lottery>(lotteryIdl as Lottery, provider);
 }
 
@@ -312,4 +336,3 @@ export async function buildResolveAccounts(
 }
 
 export { AnchorProvider, Program } from '@coral-xyz/anchor';
-export type { Wallet } from '@coral-xyz/anchor';

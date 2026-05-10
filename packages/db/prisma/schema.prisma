@@ -139,6 +139,15 @@ model Donation {
   @@map("donation")
 }
 
+model User {
+  pubkey      String   @id
+  isAdmin     Boolean  @default(false)              @map("is_admin")
+  createdAt   DateTime @default(now())              @map("created_at")
+  lastSeenAt  DateTime @default(now()) @updatedAt   @map("last_seen_at")
+
+  @@map("user")
+}
+
 model AdminTransfer {
   txSignature   String   @id                @map("tx_signature")
   previousAdmin String                      @map("previous_admin")
