@@ -37,7 +37,20 @@ export function useBuyTicket(args: BuyArgs) {
         const lotteryPk = new PublicKey(args.lottery);
         const roundPk = new PublicKey(args.round);
         const shardPk = ticketShardPda(roundPk, args.currentShardIndex);
+        console.log('[buy] tx accounts', {
+          lottery: lotteryPk.toBase58(),
+          round: roundPk.toBase58(),
+          currentShard: shardPk.toBase58(),
+          buyer: wallet.publicKey.toBase58(),
+          quantity,
+        });
 
+        // Use Anchor's provider-driven send path. It uses
+        // `signAllTransactions` under the hood, which Solflare handles
+        // more reliably than a bare `signTransaction` call. We tried the
+        // manual `signTransaction + sendRawTransaction` path and Solflare
+        // rejected with an empty popup; this provider path mirrors what
+        // the working scripts (devnet-comprehensive.ts) do.
         const sig = await program.methods
           .buyTickets(new BN(quantity))
           .accountsPartial({
@@ -47,7 +60,7 @@ export function useBuyTicket(args: BuyArgs) {
             buyer: wallet.publicKey,
             systemProgram: SystemProgram.programId,
           })
-          .rpc();
+          .rpc({ skipPreflight: false, commitment: 'confirmed' });
         setSignature(sig);
         setStatus('confirming');
         await connection.confirmTransaction(sig, 'confirmed');
@@ -55,6 +68,7 @@ export function useBuyTicket(args: BuyArgs) {
         // Refresh the RSC so pool/tickets/state pick up the change.
         router.refresh();
       } catch (err: any) {
+        console.error('[buy] failed', err);
         setError(parseAnchorError(err) ?? err?.message ?? 'failed to buy');
         setStatus('error');
       }

@@ -37,12 +37,22 @@ export function CountdownCard({
         className={`flex items-center justify-center gap-0.5 md:gap-1 font-mono text-base md:text-lg ${
           paused ? 'opacity-50' : ''
         }`}
+        // Server and client clocks differ by the network/render latency,
+        // so the SSR HH:MM:SS will be a couple seconds ahead of the client's
+        // first paint. Tiny expected drift — silence the hydration warning.
+        suppressHydrationWarning
       >
-        <span className="text-foreground tabular-nums">{h}</span>
+        <span className="text-foreground tabular-nums" suppressHydrationWarning>
+          {h}
+        </span>
         <span className="text-muted-foreground/50">:</span>
-        <span className="text-foreground tabular-nums">{m}</span>
+        <span className="text-foreground tabular-nums" suppressHydrationWarning>
+          {m}
+        </span>
         <span className="text-muted-foreground/50">:</span>
-        <span className="text-foreground tabular-nums">{s}</span>
+        <span className="text-foreground tabular-nums" suppressHydrationWarning>
+          {s}
+        </span>
       </div>
     </div>
   );

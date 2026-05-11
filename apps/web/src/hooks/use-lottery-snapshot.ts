@@ -51,7 +51,20 @@ export function useLotterySnapshot(initial: LotterySnapshot | null) {
       return res.json();
     },
     initialData: { snapshot: initial },
-    refetchInterval: 5_000,
+    // Poll fast (~1.5s) once the round has aged out or moved into the
+    // resolution pipeline — that's when the user is waiting for the new
+    // round to appear. Steady-state polling stays at 5s.
+    refetchInterval: (q) => {
+      const s = q.state.data?.snapshot ?? null;
+      if (!s) return 5_000;
+      const nowSec = Math.floor(Date.now() / 1000);
+      const inResolveWindow =
+        s.round.state === 'closed' ||
+        s.round.state === 'awaitingVrf' ||
+        s.round.state === 'resolved' ||
+        (s.round.state === 'open' && s.round.effectiveEndUnix <= nowSec);
+      return inResolveWindow ? 1_500 : 5_000;
+    },
     refetchIntervalInBackground: false,
   });
 
