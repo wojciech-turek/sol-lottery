@@ -8,10 +8,7 @@ import { useCallback, useState } from 'react';
 
 import { createProgram, ticketShardPda } from '@sol-lottery/sdk';
 
-import {
-  SNAPSHOT_KEY,
-  type SnapshotResponse,
-} from '@/hooks/use-lottery-snapshot';
+import { SNAPSHOT_KEY } from '@/hooks/use-lottery-snapshot';
 
 interface BuyArgs {
   lottery: string;
@@ -68,35 +65,16 @@ export function useBuyTicket(args: BuyArgs) {
         await connection.confirmTransaction(sig, 'confirmed');
         setStatus('success');
 
-        // Optimistic bump so the user sees their pool/tickets jump
-        // immediately. The indexer typically commits the new ticket_purchase
-        // and lottery_round update within ~200–500 ms, at which point
-        // Supabase Realtime fires `postgres_changes` and the snapshot
-        // refetches to the authoritative value. The invalidate call below
-        // also fans out to ['lottery','tickets', …] so the tickets card
-        // catches up alongside.
-        queryClient.setQueryData<SnapshotResponse | undefined>(
-          SNAPSHOT_KEY,
-          (prev) => {
-            if (!prev?.snapshot) return prev;
-            if (prev.snapshot.round.pubkey !== args.round) return prev;
-            const price = BigInt(prev.snapshot.lottery.ticketPriceLamports);
-            const qty = BigInt(quantity);
-            const newTickets = BigInt(prev.snapshot.round.ticketsSold) + qty;
-            const newPool = BigInt(prev.snapshot.round.poolLamports) + price * qty;
-            return {
-              snapshot: {
-                ...prev.snapshot,
-                round: {
-                  ...prev.snapshot.round,
-                  ticketsSold: newTickets.toString(),
-                  poolLamports: newPool.toString(),
-                },
-              },
-            };
-          },
-        );
-        void queryClient.invalidateQueries({ queryKey: ['lottery'] });
+        // Refresh tickets/activity/winners now. Skip the snapshot:
+        // invalidating it here races the indexer (~200–500 ms behind), so
+        // the refetch returns the pre-buy value and the pot would flicker
+        // back. The snapshot refreshes on its own when Supabase Realtime
+        // fires `postgres_changes` on `lottery_round` shortly after.
+        void queryClient.invalidateQueries({
+          queryKey: ['lottery'],
+          predicate: (q) =>
+            !(q.queryKey[0] === 'lottery' && q.queryKey[1] === 'snapshot'),
+        });
       } catch (err) {
         console.error('[buy] failed', err);
         const msg =

@@ -1,6 +1,6 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion, useAnimationControls } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 
 import { useSession } from '@/components/session-provider';
@@ -26,6 +26,7 @@ export function PoolDisplay() {
   const effectiveEndUnix = data?.round.effectiveEndUnix ?? 0;
   const paused = lotteryState === 'paused';
   const poolLamports = BigInt(data?.round.poolLamports ?? '0');
+  const ticketsSold = BigInt(data?.round.ticketsSold ?? '0');
 
   const { buy, reset, status, error, signature } = useBuyTicket({
     lottery,
@@ -66,6 +67,76 @@ export function PoolDisplay() {
   const sol = lamportsToSol(poolLamports);
   const priceSol = lamportsToSol(BigInt(ticketPriceLamports));
 
+  // Heartbeat the pot counter whenever the pool changes (for any reason —
+  // buy, donation, resolution). The coin-ding sound is gated tighter: only
+  // when ticketsSold went up within the same round, so it fires on real
+  // ticket purchases and not on round rollover / payout. The ref skips
+  // the initial mount so the page doesn't beat or chime on first paint.
+  const beatControls = useAnimationControls();
+  const prevPoolRef = useRef<bigint | null>(null);
+  const prevRoundRef = useRef<string | null>(null);
+  const prevTicketsSoldRef = useRef<bigint>(0n);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  useEffect(() => {
+    const firstPaint = prevPoolRef.current === null;
+    const roundChanged = prevRoundRef.current !== round;
+    const ticketsIncreased =
+      !firstPaint &&
+      !roundChanged &&
+      ticketsSold > prevTicketsSoldRef.current;
+    const poolChanged = !firstPaint && prevPoolRef.current !== poolLamports;
+
+    prevPoolRef.current = poolLamports;
+    prevRoundRef.current = round;
+    prevTicketsSoldRef.current = ticketsSold;
+
+    if (firstPaint) return;
+
+    if (poolChanged) {
+      void beatControls.start({
+        scale: [1, 1.18, 0.96, 1.06, 1],
+        transition: { duration: 0.55, ease: 'easeInOut' },
+      });
+    }
+
+    if (!ticketsIncreased) return;
+
+    try {
+      const Ctor =
+        window.AudioContext ??
+        (window as unknown as { webkitAudioContext?: typeof AudioContext })
+          .webkitAudioContext;
+      if (!Ctor) return;
+      const ctx = audioCtxRef.current ?? new Ctor();
+      audioCtxRef.current = ctx;
+      void ctx.resume();
+      const now = ctx.currentTime;
+      const note = (freq: number, start: number, dur: number) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.0001, now + start);
+        gain.gain.exponentialRampToValueAtTime(0.18, now + start + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + start + dur);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(now + start);
+        osc.stop(now + start + dur + 0.02);
+      };
+      note(880, 0, 0.14);
+      note(1318.5, 0.06, 0.18);
+    } catch {
+      // audio blocked or unsupported — ignore
+    }
+  }, [poolLamports, ticketsSold, round, beatControls]);
+
+  useEffect(() => {
+    return () => {
+      void audioCtxRef.current?.close();
+      audioCtxRef.current = null;
+    };
+  }, []);
+
   const reason = (() => {
     if (!data) return null;
     if (lotteryState === 'paused') return 'Lottery paused';
@@ -82,6 +153,12 @@ export function PoolDisplay() {
 
   // Debounced batch-buy: each click bumps pending count and (re)starts an
   // 800 ms timer. When it fires we send a single tx with the batched qty.
+  // The ref is the authoritative value read inside the timer callback;
+  // `pendingQty` state only drives the button label and progress bar. Keeping
+  // the side effect (calling `buy`) out of any setState updater is required
+  // because React 19 Strict Mode double-invokes updaters in dev — wrapping
+  // `buy()` in an updater would fire two wallet popups for a single click.
+  const pendingQtyRef = useRef(0);
   const [pendingQty, setPendingQty] = useState(0);
   const [debounceKey, setDebounceKey] = useState(0);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -91,6 +168,7 @@ export function PoolDisplay() {
     // Clearing the batch debounce when the buy button becomes unavailable
     // (round ended, lottery paused, etc.) is a synchronization with
     // external state — same exception as wallet-modal.
+    pendingQtyRef.current = 0;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPendingQty(0);
     if (debounceTimer.current) {
@@ -100,11 +178,11 @@ export function PoolDisplay() {
   }, [buyDisabled]);
 
   const fireBuy = () => {
-    setPendingQty((qty) => {
-      if (qty > 0) buy(qty);
-      return 0;
-    });
+    const qty = pendingQtyRef.current;
+    pendingQtyRef.current = 0;
+    setPendingQty(0);
     debounceTimer.current = null;
+    if (qty > 0) buy(qty);
   };
 
   const handleClick = () => {
@@ -113,7 +191,9 @@ export function PoolDisplay() {
       return;
     }
     if (buyDisabled) return;
-    setPendingQty((q) => Math.min(MAX_BATCH, q + 1));
+    const next = Math.min(MAX_BATCH, pendingQtyRef.current + 1);
+    pendingQtyRef.current = next;
+    setPendingQty(next);
     setDebounceKey((k) => k + 1);
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(fireBuy, DEBOUNCE_MS);
@@ -155,9 +235,12 @@ export function PoolDisplay() {
             Pool
           </span>
           {data ? (
-            <span className="text-primary-foreground text-2xl md:text-3xl lg:text-4xl font-bold font-mono tabular-nums">
+            <motion.span
+              animate={beatControls}
+              className="text-primary-foreground text-2xl md:text-3xl lg:text-4xl font-bold font-mono tabular-nums"
+            >
               {sol.toFixed(2)}
-            </span>
+            </motion.span>
           ) : (
             <span
               className="my-1 h-7 w-16 md:h-9 md:w-20 lg:h-10 lg:w-24 rounded bg-primary-foreground/20 animate-pulse"
