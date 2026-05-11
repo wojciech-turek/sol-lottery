@@ -12,7 +12,7 @@ interface Winner {
   resolvedAt: string;
 }
 
-export function RecentWinners({ initial }: { initial?: Winner[] }) {
+export function RecentWinners() {
   const { data } = useQuery<{ winners: Winner[] }>({
     queryKey: ['lottery', 'winners'],
     queryFn: async () => {
@@ -20,8 +20,7 @@ export function RecentWinners({ initial }: { initial?: Winner[] }) {
       if (!res.ok) throw new Error('winners fetch failed');
       return res.json();
     },
-    initialData: { winners: initial ?? [] },
-    refetchInterval: 15_000,
+    staleTime: Infinity,
   });
   const winners = data?.winners ?? [];
 

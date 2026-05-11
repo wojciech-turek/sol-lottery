@@ -3,10 +3,15 @@
 import { BN } from '@coral-xyz/anchor';
 import { useAnchorWallet, useConnection } from '@solana/wallet-adapter-react';
 import { PublicKey, SystemProgram } from '@solana/web3.js';
-import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
 
 import { createProgram, ticketShardPda } from '@sol-lottery/sdk';
+
+import {
+  SNAPSHOT_KEY,
+  type SnapshotResponse,
+} from '@/hooks/use-lottery-snapshot';
 
 interface BuyArgs {
   lottery: string;
@@ -19,7 +24,7 @@ type Status = 'idle' | 'sending' | 'confirming' | 'success' | 'error';
 export function useBuyTicket(args: BuyArgs) {
   const { connection } = useConnection();
   const wallet = useAnchorWallet();
-  const router = useRouter();
+  const queryClient = useQueryClient();
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState<string | null>(null);
   const [signature, setSignature] = useState<string | null>(null);
@@ -45,12 +50,9 @@ export function useBuyTicket(args: BuyArgs) {
           quantity,
         });
 
-        // Use Anchor's provider-driven send path. It uses
-        // `signAllTransactions` under the hood, which Solflare handles
-        // more reliably than a bare `signTransaction` call. We tried the
-        // manual `signTransaction + sendRawTransaction` path and Solflare
-        // rejected with an empty popup; this provider path mirrors what
-        // the working scripts (devnet-comprehensive.ts) do.
+        // Anchor's provider-driven send path (uses signAllTransactions under
+        // the hood) plays more reliably with Solflare than a bare
+        // signTransaction + sendRawTransaction.
         const sig = await program.methods
           .buyTickets(new BN(quantity))
           .accountsPartial({
@@ -65,15 +67,52 @@ export function useBuyTicket(args: BuyArgs) {
         setStatus('confirming');
         await connection.confirmTransaction(sig, 'confirmed');
         setStatus('success');
-        // Refresh the RSC so pool/tickets/state pick up the change.
-        router.refresh();
-      } catch (err: any) {
+
+        // Optimistic bump so the user sees their pool/tickets jump
+        // immediately. The indexer typically commits the new ticket_purchase
+        // and lottery_round update within ~200–500 ms, at which point
+        // Supabase Realtime fires `postgres_changes` and the snapshot
+        // refetches to the authoritative value. The invalidate call below
+        // also fans out to ['lottery','tickets', …] so the tickets card
+        // catches up alongside.
+        queryClient.setQueryData<SnapshotResponse | undefined>(
+          SNAPSHOT_KEY,
+          (prev) => {
+            if (!prev?.snapshot) return prev;
+            if (prev.snapshot.round.pubkey !== args.round) return prev;
+            const price = BigInt(prev.snapshot.lottery.ticketPriceLamports);
+            const qty = BigInt(quantity);
+            const newTickets = BigInt(prev.snapshot.round.ticketsSold) + qty;
+            const newPool = BigInt(prev.snapshot.round.poolLamports) + price * qty;
+            return {
+              snapshot: {
+                ...prev.snapshot,
+                round: {
+                  ...prev.snapshot.round,
+                  ticketsSold: newTickets.toString(),
+                  poolLamports: newPool.toString(),
+                },
+              },
+            };
+          },
+        );
+        void queryClient.invalidateQueries({ queryKey: ['lottery'] });
+      } catch (err) {
         console.error('[buy] failed', err);
-        setError(parseAnchorError(err) ?? err?.message ?? 'failed to buy');
+        const msg =
+          err instanceof Error ? err.message : 'failed to buy';
+        setError(parseAnchorError(err) ?? msg);
         setStatus('error');
       }
     },
-    [args.currentShardIndex, args.lottery, args.round, connection, router, wallet],
+    [
+      args.currentShardIndex,
+      args.lottery,
+      args.round,
+      connection,
+      queryClient,
+      wallet,
+    ],
   );
 
   const reset = useCallback(() => {

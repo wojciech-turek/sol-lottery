@@ -12,7 +12,7 @@ interface ActivityItem {
   at: string;
 }
 
-export function PoolActivity({ initial }: { initial?: ActivityItem[] }) {
+export function PoolActivity() {
   const { data } = useQuery<{ activity: ActivityItem[] }>({
     queryKey: ['lottery', 'activity'],
     queryFn: async () => {
@@ -20,8 +20,7 @@ export function PoolActivity({ initial }: { initial?: ActivityItem[] }) {
       if (!res.ok) throw new Error('activity fetch failed');
       return res.json();
     },
-    initialData: { activity: initial ?? [] },
-    refetchInterval: 10_000,
+    staleTime: Infinity,
   });
   const items = data?.activity ?? [];
 

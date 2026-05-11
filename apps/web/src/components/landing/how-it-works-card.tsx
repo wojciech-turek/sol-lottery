@@ -1,21 +1,17 @@
+'use client';
+
 import { Info } from 'lucide-react';
 
+import { useLottery } from '@/hooks/use-lottery-snapshot';
 import { lamportsToSol } from '@/lib/format';
 
-interface Props {
-  ticketPriceLamports: bigint;
-  durationSeconds: bigint;
-  poolBps: number;
-}
-
-export function HowItWorksCard({
-  ticketPriceLamports,
-  durationSeconds,
-  poolBps,
-}: Props) {
-  const priceSol = lamportsToSol(ticketPriceLamports);
-  const durationLabel = formatDuration(Number(durationSeconds));
-  const winnerPct = (poolBps / 100).toFixed(0);
+export function HowItWorksCard() {
+  const { data } = useLottery();
+  const priceSol = data ? lamportsToSol(BigInt(data.lottery.ticketPriceLamports)) : 0;
+  const durationLabel = data
+    ? formatDuration(Number(data.lottery.durationSeconds))
+    : '—';
+  const winnerPct = data ? (data.lottery.poolBps / 100).toFixed(0) : '—';
   return (
     <div className="glass rounded-lg p-2 md:p-3 h-full">
       <div className="flex items-center gap-1.5 mb-1.5 md:mb-2">
@@ -25,7 +21,7 @@ export function HowItWorksCard({
         </p>
       </div>
       <ul className="text-foreground text-[10px] md:text-xs space-y-0.5 md:space-y-1">
-        <li>• {priceSol.toFixed(2)} SOL per ticket</li>
+        <li>• {data ? priceSol.toFixed(2) : '—'} SOL per ticket</li>
         <li>• Pool grows with each ticket</li>
         <li>• Draw every {durationLabel}</li>
         <li>• {winnerPct}% to winner</li>

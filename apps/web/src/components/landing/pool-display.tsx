@@ -1,143 +1,90 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 
 import { useSession } from '@/components/session-provider';
 import { useWalletModal } from '@/components/wallet-modal';
 import { useBuyTicket } from '@/hooks/use-buy-ticket';
+import { useLottery } from '@/hooks/use-lottery-snapshot';
 import { lamportsToSol } from '@/lib/format';
-import type { LotterySnapshot } from '@/hooks/use-lottery-snapshot';
 
 const DEBOUNCE_MS = 800;
 const MAX_BATCH = 128; // matches MAX_BUYERS_PER_CALL in the program
 
-interface Props {
-  lottery: string;
-  round: string;
-  currentShardIndex: number;
-  ticketPriceLamports: string;
-  initialPoolLamports: string;
-  roundState: 'open' | 'closed' | 'awaitingVrf' | 'resolved';
-  lotteryState: 'active' | 'paused' | 'pendingDisable' | 'disabled';
-  effectiveEndUnix: number;
-  paused: boolean;
-}
-
-export function PoolDisplay({
-  lottery,
-  round,
-  currentShardIndex,
-  ticketPriceLamports,
-  initialPoolLamports,
-  roundState,
-  lotteryState,
-  effectiveEndUnix,
-  paused,
-}: Props) {
+export function PoolDisplay() {
   const { pubkey } = useSession();
   const { open } = useWalletModal();
+  const { data } = useLottery();
 
-  // Read the latest snapshot (kept fresh by SnapshotWatcher every 5s).
-  // We use IT — not the SSR props — to pick which round/shard to buy
-  // tickets on, otherwise a page that's been open across several
-  // rollovers would still try to write to a long-resolved round.
-  // SnapshotWatcher owns the polling cadence; this useQuery shares the
-  // same cache entry so re-renders are automatic. queryFn must be
-  // provided (TanStack Query requires it even when refetching is off).
-  const snapshotQuery = useQuery<{ snapshot: LotterySnapshot | null }>({
-    queryKey: ['lottery', 'snapshot'],
-    queryFn: async () => {
-      const res = await fetch('/api/lottery/snapshot');
-      if (!res.ok) throw new Error('snapshot fetch failed');
-      return res.json();
-    },
-    enabled: false,
-    staleTime: Infinity,
-  });
-  const live = snapshotQuery.data?.snapshot;
-  const liveRound = live?.round.pubkey ?? round;
-  const liveShardIndex =
-    live?.round.currentShardIndex ?? currentShardIndex;
-  const liveLotteryState = live?.lottery.state ?? lotteryState;
-  const liveRoundState = live?.round.state ?? roundState;
-  const liveEffectiveEnd = live?.round.effectiveEndUnix ?? effectiveEndUnix;
+  const lottery = data?.lottery.pubkey ?? '';
+  const round = data?.round.pubkey ?? '';
+  const currentShardIndex = data?.round.currentShardIndex ?? 0;
+  const ticketPriceLamports = data?.lottery.ticketPriceLamports ?? '0';
+  const roundState = data?.round.state;
+  const lotteryState = data?.lottery.state;
+  const effectiveEndUnix = data?.round.effectiveEndUnix ?? 0;
+  const paused = lotteryState === 'paused';
+  const poolLamports = BigInt(data?.round.poolLamports ?? '0');
 
   const { buy, reset, status, error, signature } = useBuyTicket({
     lottery,
-    round: liveRound,
-    currentShardIndex: liveShardIndex,
+    round,
+    currentShardIndex,
   });
 
   // Clear "Bought — buy another?" the instant the active round changes.
-  // Without this, a success from round N sticks around through round N's
-  // resolution and into round N+1, even though it's no longer relevant.
+  // Without this, success from round N sticks around into round N+1.
   useEffect(() => {
     reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveRound]);
+  }, [round]);
 
-  // Local "are we past the deadline" flag. Lets the button flip to
-  // "Drawing winner…" the instant the countdown hits 0 instead of
-  // waiting for the chain-state polling to catch up. The snapshot
-  // watcher will follow up with the authoritative state.
-  const [pastDeadline, setPastDeadline] = useState<boolean>(
-    () => !paused && liveEffectiveEnd - Math.floor(Date.now() / 1000) <= 0,
-  );
+  // Anticipatory "Drawing winner…" the moment the local countdown reaches 0.
+  // The Realtime invalidation will then catch the chain-confirmed state
+  // change a moment later. Resets automatically when `effectiveEndUnix`
+  // updates (new round → new deadline in the future).
+  const [pastDeadline, setPastDeadline] = useState<boolean>(() => {
+    if (paused || !effectiveEndUnix) return false;
+    return effectiveEndUnix - Math.floor(Date.now() / 1000) <= 0;
+  });
   useEffect(() => {
-    if (paused) {
+    if (paused || !effectiveEndUnix) {
       setPastDeadline(false);
       return;
     }
     const tick = () => {
-      const remaining = liveEffectiveEnd - Math.floor(Date.now() / 1000);
+      const remaining = effectiveEndUnix - Math.floor(Date.now() / 1000);
       setPastDeadline(remaining <= 0);
     };
     tick();
     const id = setInterval(tick, 1_000);
     return () => clearInterval(id);
-  }, [liveEffectiveEnd, paused]);
-
-  const { data } = useQuery<{ poolLamports: string }>({
-    queryKey: ['lottery', 'pool', liveRound],
-    queryFn: async () => {
-      const res = await fetch(`/api/lottery/pool?round=${liveRound}`);
-      if (!res.ok) throw new Error('pool fetch failed');
-      return res.json();
-    },
-    initialData: { poolLamports: initialPoolLamports },
-    refetchInterval: 5_000,
-  });
-  const poolLamports = BigInt(data?.poolLamports ?? initialPoolLamports);
+  }, [effectiveEndUnix, paused]);
 
   const sol = lamportsToSol(poolLamports);
   const priceSol = lamportsToSol(BigInt(ticketPriceLamports));
 
   const reason = (() => {
-    if (liveLotteryState === 'paused') return 'Lottery paused';
-    if (liveLotteryState === 'pendingDisable') return 'Lottery winding down';
-    if (liveLotteryState === 'disabled') return 'Lottery disabled';
-    if (liveRoundState === 'awaitingVrf' || liveRoundState === 'closed')
+    if (!data) return null;
+    if (lotteryState === 'paused') return 'Lottery paused';
+    if (lotteryState === 'pendingDisable') return 'Lottery winding down';
+    if (lotteryState === 'disabled') return 'Lottery disabled';
+    if (roundState === 'awaitingVrf' || roundState === 'closed')
       return 'Drawing winner…';
-    if (liveRoundState === 'resolved') return 'Drawing winner…';
-    // Client-side anticipation: the moment the countdown hits 0, show the
-    // resolving state without waiting for the chain to flip round.state.
+    if (roundState === 'resolved') return 'Drawing winner…';
     if (pastDeadline) return 'Drawing winner…';
     return null;
   })();
   const buyDisabled =
-    !!reason || status === 'sending' || status === 'confirming';
+    !data || !!reason || status === 'sending' || status === 'confirming';
 
-  // Debounced batch-buy: each click bumps the pending count and (re)starts
-  // an 800 ms timer. When the timer fires we send a single tx with the
-  // batched quantity. The animated bar shows the user how much time is
-  // left to add another ticket before the click "locks in".
+  // Debounced batch-buy: each click bumps pending count and (re)starts an
+  // 800 ms timer. When it fires we send a single tx with the batched qty.
   const [pendingQty, setPendingQty] = useState(0);
-  const [debounceKey, setDebounceKey] = useState(0); // bumps to restart anim
+  const [debounceKey, setDebounceKey] = useState(0);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Clear pending state if the round flips away from buyable.
   useEffect(() => {
     if (!buyDisabled) return;
     setPendingQty(0);
@@ -174,10 +121,8 @@ export function PoolDisplay({
   }, []);
 
   const buttonLabel = (() => {
+    if (!data) return 'Loading…';
     if (!pubkey) return 'Connect Wallet';
-    // Round-state info wins over personal in-flight tx labels — if the
-    // draw is happening, the user needs to see that, not a stale
-    // "Bought — buy another?" from a previous round.
     if (reason) return reason;
     if (status === 'sending') return 'Confirm in wallet…';
     if (status === 'confirming') return 'Confirming…';
@@ -205,7 +150,7 @@ export function PoolDisplay({
             Pool
           </span>
           <span className="text-primary-foreground text-2xl md:text-3xl lg:text-4xl font-bold font-mono tabular-nums">
-            {sol.toFixed(2)}
+            {data ? sol.toFixed(2) : '—'}
           </span>
           <span className="text-primary-foreground/70 text-xs md:text-sm font-medium">
             SOL
@@ -219,10 +164,6 @@ export function PoolDisplay({
         title={reason ?? undefined}
         className="relative overflow-hidden mt-3 md:mt-4 pot-gradient text-primary-foreground font-semibold text-xs md:text-sm px-5 md:px-6 py-2 md:py-2.5 rounded-full transition-transform duration-200 hover:scale-105 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100"
       >
-        {/* Debounce progress: a single left→right dimming overlay that
-            restarts on every click. Keying on `debounceKey` remounts the
-            motion span instantly (no exit animation), so successive
-            clicks cleanly reset the sweep instead of stacking. */}
         {pendingQty > 0 && (
           <motion.span
             key={debounceKey}

@@ -2,25 +2,25 @@
 
 import { useEffect, useState } from 'react';
 
+import { useLottery } from '@/hooks/use-lottery-snapshot';
 import { formatDurationFromSeconds } from '@/lib/format';
 
-export function CountdownCard({
-  effectiveEndUnix,
-  paused = false,
-  roundIndex,
-}: {
-  effectiveEndUnix: number;
-  paused?: boolean;
-  roundIndex?: string | number | bigint;
-}) {
+export function CountdownCard() {
+  const { data } = useLottery();
+  const paused = data?.lottery.state === 'paused';
+  const effectiveEndUnix = data?.round.effectiveEndUnix ?? 0;
+  const roundIndex = data?.round.index;
+
   const [now, setNow] = useState<number>(() => Math.floor(Date.now() / 1000));
   useEffect(() => {
-    if (paused) return;
+    if (paused || !effectiveEndUnix) return;
     const id = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000);
     return () => clearInterval(id);
-  }, [paused]);
+  }, [paused, effectiveEndUnix]);
+
   const remaining = Math.max(0, effectiveEndUnix - now);
   const [h, m, s] = formatDurationFromSeconds(remaining).split(':');
+
   return (
     <div className="text-center">
       <div className="flex items-center justify-center gap-2 mb-1">
@@ -29,29 +29,25 @@ export function CountdownCard({
         </p>
         {roundIndex !== undefined && (
           <span className="text-[10px] uppercase tracking-wider text-primary/80 font-mono">
-            · Round #{roundIndex.toString()}
+            · Round #{roundIndex}
           </span>
         )}
       </div>
       <div
         className={`flex items-center justify-center gap-0.5 md:gap-1 font-mono text-base md:text-lg ${
           paused ? 'opacity-50' : ''
-        }`}
-        // Server and client clocks differ by the network/render latency,
-        // so the SSR HH:MM:SS will be a couple seconds ahead of the client's
-        // first paint. Tiny expected drift — silence the hydration warning.
-        suppressHydrationWarning
+        } ${!data ? 'opacity-40' : ''}`}
       >
-        <span className="text-foreground tabular-nums" suppressHydrationWarning>
-          {h}
+        <span className="text-foreground tabular-nums">
+          {data ? h : '--'}
         </span>
         <span className="text-muted-foreground/50">:</span>
-        <span className="text-foreground tabular-nums" suppressHydrationWarning>
-          {m}
+        <span className="text-foreground tabular-nums">
+          {data ? m : '--'}
         </span>
         <span className="text-muted-foreground/50">:</span>
-        <span className="text-foreground tabular-nums" suppressHydrationWarning>
-          {s}
+        <span className="text-foreground tabular-nums">
+          {data ? s : '--'}
         </span>
       </div>
     </div>
