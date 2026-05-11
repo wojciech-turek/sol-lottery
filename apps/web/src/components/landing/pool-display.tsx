@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 
 import { useSession } from '@/components/session-provider';
 import { useWalletModal } from '@/components/wallet-modal';
@@ -15,6 +16,8 @@ interface Props {
   initialPoolLamports: string;
   roundState: 'open' | 'closed' | 'awaitingVrf' | 'resolved';
   lotteryState: 'active' | 'paused' | 'pendingDisable' | 'disabled';
+  effectiveEndUnix: number;
+  paused: boolean;
 }
 
 export function PoolDisplay({
@@ -25,6 +28,8 @@ export function PoolDisplay({
   initialPoolLamports,
   roundState,
   lotteryState,
+  effectiveEndUnix,
+  paused,
 }: Props) {
   const { pubkey } = useSession();
   const { open } = useWalletModal();
@@ -33,6 +38,27 @@ export function PoolDisplay({
     round,
     currentShardIndex,
   });
+
+  // Local "are we past the deadline" flag. Lets the button flip to
+  // "Drawing winner…" the instant the countdown hits 0 instead of
+  // waiting for the chain-state polling to catch up. The snapshot
+  // watcher will follow up with the authoritative state.
+  const [pastDeadline, setPastDeadline] = useState<boolean>(
+    () => !paused && effectiveEndUnix - Math.floor(Date.now() / 1000) <= 0,
+  );
+  useEffect(() => {
+    if (paused) {
+      setPastDeadline(false);
+      return;
+    }
+    const tick = () => {
+      const remaining = effectiveEndUnix - Math.floor(Date.now() / 1000);
+      setPastDeadline(remaining <= 0);
+    };
+    tick();
+    const id = setInterval(tick, 1_000);
+    return () => clearInterval(id);
+  }, [effectiveEndUnix, paused]);
 
   const { data } = useQuery<{ poolLamports: string }>({
     queryKey: ['lottery', 'pool', round],
@@ -53,9 +79,12 @@ export function PoolDisplay({
     if (lotteryState === 'paused') return 'Lottery paused';
     if (lotteryState === 'pendingDisable') return 'Lottery winding down';
     if (lotteryState === 'disabled') return 'Lottery disabled';
-    if (roundState === 'closed') return 'Round closed — awaiting draw';
-    if (roundState === 'awaitingVrf') return 'Drawing winner…';
+    if (roundState === 'awaitingVrf' || roundState === 'closed')
+      return 'Drawing winner…';
     if (roundState === 'resolved') return 'Round resolved';
+    // Client-side anticipation: the moment the countdown hits 0, show the
+    // resolving state without waiting for the chain to flip round.state.
+    if (pastDeadline) return 'Drawing winner…';
     return null;
   })();
   const buyDisabled =

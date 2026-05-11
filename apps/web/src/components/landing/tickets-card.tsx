@@ -11,19 +11,27 @@ interface Stats {
   players: number;
 }
 
-export function TicketsCard({ roundPubkey }: { roundPubkey: string }) {
+export function TicketsCard({
+  roundPubkey,
+  initial,
+}: {
+  roundPubkey: string;
+  initial?: Stats;
+}) {
   const { pubkey } = useSession();
-  const { data: stats = { total: 0, yours: 0, players: 0 } } = useQuery<Stats>({
-    queryKey: ['lottery', 'tickets', roundPubkey, pubkey],
-    queryFn: async () => {
-      const params = new URLSearchParams({ round: roundPubkey });
-      if (pubkey) params.set('buyer', pubkey);
-      const res = await fetch(`/api/lottery/tickets?${params.toString()}`);
-      if (!res.ok) throw new Error('tickets fetch failed');
-      return res.json();
-    },
-    refetchInterval: 5_000,
-  });
+  const { data: stats = initial ?? { total: 0, yours: 0, players: 0 } } =
+    useQuery<Stats>({
+      queryKey: ['lottery', 'tickets', roundPubkey, pubkey],
+      queryFn: async () => {
+        const params = new URLSearchParams({ round: roundPubkey });
+        if (pubkey) params.set('buyer', pubkey);
+        const res = await fetch(`/api/lottery/tickets?${params.toString()}`);
+        if (!res.ok) throw new Error('tickets fetch failed');
+        return res.json();
+      },
+      initialData: initial,
+      refetchInterval: 5_000,
+    });
 
   const odds =
     stats.total > 0 ? ((stats.yours / stats.total) * 100).toFixed(1) : '0';

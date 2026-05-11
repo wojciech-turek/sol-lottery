@@ -1,4 +1,6 @@
 import { fetchActiveLottery } from '@/lib/chain/server';
+import { fetchLandingInitial } from '@/lib/landing-data';
+import { getCurrentSession } from '@/lib/auth/session';
 import { Header } from '@/components/header';
 import { CountdownCard } from '@/components/landing/countdown-card';
 import { TicketsCard } from '@/components/landing/tickets-card';
@@ -67,27 +69,21 @@ export default async function HomePage() {
 
   const roundPubkey = snapshot.round.round.toBase58();
   const lotteryPubkey = snapshot.lottery.lottery.toBase58();
+  const session = await getCurrentSession();
+  const initial = await fetchLandingInitial(roundPubkey, session?.pubkey ?? null);
   const isPaused = snapshot.lottery.state === 'paused';
-  const nowSec = Math.floor(Date.now() / 1000);
-  // The round is "resolving" once it's past its effective end OR has moved
-  // into the closed/awaitingVrf chain state — at that point the resolver
-  // is in flight and no more buys land.
-  const isResolving =
-    snapshot.lottery.state === 'active' &&
-    (snapshot.round.state === 'closed' ||
-      snapshot.round.state === 'awaitingVrf' ||
-      (snapshot.round.state === 'open' &&
-        snapshot.round.effectiveEndUnix <= nowSec));
-  const dimState: 'paused' | 'pendingDisable' | 'disabled' | 'resolving' | null =
+  // Banner is reserved for state that meaningfully shifts the user's
+  // mental model (paused, winding down, disabled). The "resolving"
+  // window is short and best communicated on the buy button itself —
+  // showing a banner there would push the layout around for ~5–15s.
+  const dimState: 'paused' | 'pendingDisable' | 'disabled' | null =
     snapshot.lottery.state === 'paused'
       ? 'paused'
       : snapshot.lottery.state === 'disabled'
         ? 'disabled'
-        : isResolving
-          ? 'resolving'
-          : snapshot.lottery.state === 'pendingDisable'
-            ? 'pendingDisable'
-            : null;
+        : snapshot.lottery.state === 'pendingDisable'
+          ? 'pendingDisable'
+          : null;
 
   const initialSnapshot: LotterySnapshot = {
     lottery: {
@@ -127,6 +123,7 @@ export default async function HomePage() {
           <CountdownCard
             effectiveEndUnix={snapshot.round.effectiveEndUnix}
             paused={isPaused}
+            roundIndex={snapshot.round.index.toString()}
           />
           <div className="mt-2">
             <PoolDisplay
@@ -134,20 +131,22 @@ export default async function HomePage() {
               round={roundPubkey}
               currentShardIndex={snapshot.round.currentShardIndex}
               ticketPriceLamports={snapshot.round.ticketPriceLamports.toString()}
-              initialPoolLamports={snapshot.round.poolLamports.toString()}
+              initialPoolLamports={initial.poolLamports}
               roundState={snapshot.round.state}
               lotteryState={snapshot.lottery.state}
+              effectiveEndUnix={snapshot.round.effectiveEndUnix}
+              paused={isPaused}
             />
           </div>
         </div>
 
         <div className="shrink-0 mb-3">
-          <TicketsCard roundPubkey={roundPubkey} />
+          <TicketsCard roundPubkey={roundPubkey} initial={initial.tickets} />
         </div>
 
         <div className="grid grid-cols-2 gap-2 shrink-0 h-32 mb-2">
-          <RecentWinners />
-          <PoolActivity />
+          <RecentWinners initial={initial.winners} />
+          <PoolActivity initial={initial.activity} />
         </div>
 
         <div className="grid grid-cols-2 gap-2 shrink-0">
@@ -169,8 +168,9 @@ export default async function HomePage() {
           <CountdownCard
             effectiveEndUnix={snapshot.round.effectiveEndUnix}
             paused={isPaused}
+            roundIndex={snapshot.round.index.toString()}
           />
-          <TicketsCard roundPubkey={roundPubkey} />
+          <TicketsCard roundPubkey={roundPubkey} initial={initial.tickets} />
           <HowItWorksCard
             ticketPriceLamports={snapshot.lottery.ticketPriceLamports}
             durationSeconds={snapshot.lottery.durationSeconds}
@@ -185,9 +185,11 @@ export default async function HomePage() {
             round={roundPubkey}
             currentShardIndex={snapshot.round.currentShardIndex}
             ticketPriceLamports={snapshot.round.ticketPriceLamports.toString()}
-            initialPoolLamports={snapshot.round.poolLamports.toString()}
+            initialPoolLamports={initial.poolLamports}
             roundState={snapshot.round.state}
             lotteryState={snapshot.lottery.state}
+            effectiveEndUnix={snapshot.round.effectiveEndUnix}
+            paused={isPaused}
           />
         </div>
 

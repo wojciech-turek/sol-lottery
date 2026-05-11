@@ -37,6 +37,7 @@ export function useAdminActions() {
   const router = useRouter();
   const [status, setStatus] = useState<AdminTxStatus>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [lastCreatedPubkey, setLastCreatedPubkey] = useState<string | null>(null);
   const [progress, setProgress] = useState<string | null>(null);
 
   const requireWallet = () => {
@@ -353,6 +354,7 @@ export function useAdminActions() {
         const cfg: any = await program.account.globalConfig.fetch(cfgPda);
         const nextId = BigInt(cfg.nextLotteryId.toString());
         const newLottery = lotteryPda(nextId);
+        setLastCreatedPubkey(newLottery.toBase58());
 
         await program.methods
           .createLottery(
@@ -418,6 +420,7 @@ export function useAdminActions() {
     status,
     error,
     progress,
+    lastCreatedPubkey,
     pause,
     resume,
     beginDisable,

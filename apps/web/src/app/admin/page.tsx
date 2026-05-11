@@ -3,7 +3,7 @@ import { prisma } from '@sol-lottery/db';
 import { AdminTabs } from '@/components/admin/admin-tabs';
 import { requireAdmin } from '@/lib/auth/require-admin';
 import {
-  fetchAllLotteries,
+  fetchLotteriesByPubkey,
   type CurrentLotterySnapshot,
   type CurrentRoundSnapshot,
 } from '@/lib/chain/server';
@@ -42,17 +42,10 @@ export default async function AdminPage() {
   // dozens of leftover devnet test runs. The admin panel only cares about
   // lotteries we've also indexed into Postgres, so the operator sees a
   // clean list that matches the DB-wipe + create-from-scratch flow.
-  const knownPubkeys = new Set(
-    (await prisma.lottery.findMany({ select: { pubkey: true } })).map(
-      (r) => r.pubkey,
-    ),
-  );
-  const items =
-    knownPubkeys.size === 0
-      ? []
-      : (await fetchAllLotteries()).filter((i) =>
-          knownPubkeys.has(i.lottery.lottery.toBase58()),
-        );
+  const knownPubkeys = (
+    await prisma.lottery.findMany({ select: { pubkey: true } })
+  ).map((r) => r.pubkey);
+  const items = await fetchLotteriesByPubkey(knownPubkeys);
   const lotteryPubkeys = items.map((i) => i.lottery.lottery.toBase58());
 
   const [resolvedAggBy, distinctPlayersByLottery, recentWinners, recentStateLogs] =

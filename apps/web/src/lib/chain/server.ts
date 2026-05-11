@@ -80,9 +80,116 @@ export interface LotteryListItem {
   round: CurrentRoundSnapshot | null;
 }
 
+// In-process snapshot cache. Server components fire on every navigation,
+// the snapshot watcher polls every 5s, and the admin page joins on a
+// chain read too — without this we hammer devnet's public RPC into a
+// 429 spiral. TTL is short enough that admin actions (pause/resume) feel
+// snappy and long enough that polling is cheap.
+const SNAPSHOT_CACHE_TTL_MS = 4_000;
+const lotteryFetchCache = new Map<
+  string,
+  { at: number; data: LotteryListItem | null }
+>();
+
+const lotteryItemFromAccount = (
+  publicKey: PublicKey,
+  account: any,
+): CurrentLotterySnapshot => {
+  const splits = (account.splits as any[]).map((s) => ({
+    label: unpackAsciiBytes(s.label),
+    destination: (s.destination as PublicKey).toBase58(),
+    bps: s.bps as number,
+    isPool: s.isPool as boolean,
+  }));
+  return {
+    lottery: publicKey,
+    lotteryIndex: BigInt(account.id.toString()),
+    name: unpackAsciiBytes(account.name),
+    state: enumKey(account.state) as CurrentLotterySnapshot['state'],
+    prizeKind: enumKey(account.prizeKind) as CurrentLotterySnapshot['prizeKind'],
+    ticketPriceLamports: BigInt(account.ticketPriceLamports.toString()),
+    durationSeconds: BigInt(account.roundDurationSeconds.toString()),
+    autoRollover: !!account.autoRollover,
+    splits,
+    currentRoundIndex: BigInt(account.currentRoundIndex.toString()),
+    totalRoundsResolved: BigInt(account.totalRoundsResolved.toString()),
+    totalTicketsSold: BigInt(account.totalTicketsSold.toString()),
+  };
+};
+
+const fetchSingleLottery = async (
+  pubkey: string,
+): Promise<LotteryListItem | null> => {
+  const cached = lotteryFetchCache.get(pubkey);
+  if (cached && Date.now() - cached.at < SNAPSHOT_CACHE_TTL_MS) {
+    return cached.data;
+  }
+  const { program, connection } = getServerProgram();
+  const { roundPda } = await import('@sol-lottery/sdk');
+  const lotteryKey = new PublicKey(pubkey);
+  try {
+    const account: any = await program.account.lottery.fetch(lotteryKey);
+    const lottery = lotteryItemFromAccount(lotteryKey, account);
+    let round: CurrentRoundSnapshot | null = null;
+    if (lottery.currentRoundIndex > 0n) {
+      const roundPubkey = roundPda(lotteryKey, lottery.currentRoundIndex);
+      try {
+        const roundAccount: any = await program.account.round.fetch(roundPubkey);
+        const startedAt = Number(roundAccount.startedAt);
+        const durationSeconds = Number(roundAccount.durationSeconds);
+        const pausedTotalSeconds = Number(roundAccount.pausedTotalSeconds);
+        const accountInfo = await connection.getAccountInfo(roundPubkey);
+        const totalLamports = accountInfo?.lamports ?? 0;
+        const rentReserve = accountInfo
+          ? await connection.getMinimumBalanceForRentExemption(accountInfo.data.length)
+          : 0;
+        round = {
+          round: roundPubkey,
+          index: BigInt(roundAccount.index.toString()),
+          state: enumKey(roundAccount.state) as CurrentRoundSnapshot['state'],
+          startedAt,
+          durationSeconds,
+          pausedTotalSeconds,
+          effectiveEndUnix: startedAt + durationSeconds + pausedTotalSeconds,
+          ticketPriceLamports: BigInt(roundAccount.ticketPriceLamports.toString()),
+          ticketsSold: BigInt(roundAccount.ticketsSold.toString()),
+          donatedLamports: BigInt(roundAccount.donatedLamports.toString()),
+          currentShardIndex: Number(roundAccount.currentShard ?? 0),
+          poolLamports: BigInt(Math.max(0, totalLamports - rentReserve)),
+          rentReserveLamports: BigInt(rentReserve),
+        };
+      } catch {
+        /* round may not exist yet */
+      }
+    }
+    const item: LotteryListItem = { lottery, round };
+    lotteryFetchCache.set(pubkey, { at: Date.now(), data: item });
+    return item;
+  } catch {
+    lotteryFetchCache.set(pubkey, { at: Date.now(), data: null });
+    return null;
+  }
+};
+
+/**
+ * Variant that only reads the lotteries the DB knows about. Cheap
+ * (one `getAccountInfo` per pubkey, cached) compared to a program-wide
+ * `getProgramAccounts` scan. The admin page passes its known pubkeys.
+ */
+export async function fetchLotteriesByPubkey(
+  pubkeys: string[],
+): Promise<LotteryListItem[]> {
+  if (pubkeys.length === 0) return [];
+  const results = await Promise.all(pubkeys.map((pk) => fetchSingleLottery(pk)));
+  return results
+    .filter((x): x is LotteryListItem => x !== null)
+    .sort((a, b) => Number(b.lottery.lotteryIndex - a.lottery.lotteryIndex));
+}
+
 /**
  * Fetches every lottery on chain (any state) and, for each, the current
- * round snapshot (or null when no round has opened yet).
+ * round snapshot. Heavy — only call from admin contexts that don't
+ * already have a DB-derived pubkey list.
  */
 export async function fetchAllLotteries(): Promise<LotteryListItem[]> {
   const { program, connection } = getServerProgram();
@@ -166,90 +273,26 @@ export async function fetchActiveLottery(): Promise<{
   round: CurrentRoundSnapshot;
 } | null> {
   const { prisma } = await import('@sol-lottery/db');
-  // Paused / pendingDisable still represent a "current" lottery from the
-  // user's perspective — only DISABLED (closed) lotteries should fall
-  // through to the empty state.
-  const knownPubkeys = new Set(
-    (
-      await prisma.lottery.findMany({
-        where: { state: { in: ['ACTIVE', 'PAUSED', 'PENDING_DISABLE'] } },
-        select: { pubkey: true },
-      })
-    ).map((r) => r.pubkey),
-  );
-  if (knownPubkeys.size === 0) return null;
-  const { program, connection } = getServerProgram();
-  const all = await program.account.lottery.all();
-  const candidates = all.filter((entry) => {
-    const state = enumKey((entry.account as any).state);
-    return (
-      (state === 'active' || state === 'paused' || state === 'pendingDisable') &&
-      (entry.account as any).currentRoundIndex.toNumber?.() > 0 &&
-      knownPubkeys.has(entry.publicKey.toBase58())
-    );
+  // Paused / pendingDisable still represent a "current" lottery — only
+  // DISABLED falls through to the empty state. DB is authoritative for
+  // which lotteries we know about, so we ask it for the most recent
+  // candidate and then make a single, cached, per-pubkey chain fetch.
+  const rows = await prisma.lottery.findMany({
+    where: { state: { in: ['ACTIVE', 'PAUSED', 'PENDING_DISABLE'] } },
+    orderBy: { lotteryIndex: 'desc' },
+    select: { pubkey: true },
   });
-  if (candidates.length === 0) return null;
-  // Pick the highest chain id.
-  candidates.sort(
-    (a, b) =>
-      Number(BigInt((b.account as any).id.toString())) -
-      Number(BigInt((a.account as any).id.toString())),
-  );
-  const top = candidates[0];
-  const account: any = top.account;
-
-  const splits = (account.splits as any[]).map((s) => ({
-    label: unpackAsciiBytes(s.label),
-    destination: (s.destination as PublicKey).toBase58(),
-    bps: s.bps as number,
-    isPool: s.isPool as boolean,
-  }));
-
-  const lottery: CurrentLotterySnapshot = {
-    lottery: top.publicKey,
-    lotteryIndex: BigInt(account.id.toString()),
-    name: unpackAsciiBytes(account.name),
-    state: enumKey(account.state) as CurrentLotterySnapshot['state'],
-    prizeKind: enumKey(account.prizeKind) as CurrentLotterySnapshot['prizeKind'],
-    ticketPriceLamports: BigInt(account.ticketPriceLamports.toString()),
-    durationSeconds: BigInt(account.roundDurationSeconds.toString()),
-    autoRollover: !!account.autoRollover,
-    splits,
-    currentRoundIndex: BigInt(account.currentRoundIndex.toString()),
-    totalRoundsResolved: BigInt(account.totalRoundsResolved.toString()),
-    totalTicketsSold: BigInt(account.totalTicketsSold.toString()),
-  };
-
-  // Find the round PDA + fetch.
-  const { roundPda } = await import('@sol-lottery/sdk');
-  const roundPubkey = roundPda(top.publicKey, lottery.currentRoundIndex);
-  const roundAccount: any = await program.account.round.fetch(roundPubkey);
-  const startedAt = Number(roundAccount.startedAt);
-  const durationSeconds = Number(roundAccount.durationSeconds);
-  const pausedTotalSeconds = Number(roundAccount.pausedTotalSeconds);
-  const effectiveEndUnix = startedAt + durationSeconds + pausedTotalSeconds;
-  const accountInfo = await connection.getAccountInfo(roundPubkey);
-  const totalLamports = accountInfo?.lamports ?? 0;
-  const rentReserve = accountInfo
-    ? await connection.getMinimumBalanceForRentExemption(accountInfo.data.length)
-    : 0;
-  const poolLamports = Math.max(0, totalLamports - rentReserve);
-
-  const round: CurrentRoundSnapshot = {
-    round: roundPubkey,
-    index: BigInt(roundAccount.index.toString()),
-    state: enumKey(roundAccount.state) as CurrentRoundSnapshot['state'],
-    startedAt,
-    durationSeconds,
-    pausedTotalSeconds,
-    effectiveEndUnix,
-    ticketPriceLamports: BigInt(roundAccount.ticketPriceLamports.toString()),
-    ticketsSold: BigInt(roundAccount.ticketsSold.toString()),
-    donatedLamports: BigInt(roundAccount.donatedLamports.toString()),
-    currentShardIndex: Number(roundAccount.currentShard ?? 0),
-    poolLamports: BigInt(poolLamports),
-    rentReserveLamports: BigInt(rentReserve),
-  };
-
-  return { lottery, round };
+  for (const row of rows) {
+    const item = await fetchSingleLottery(row.pubkey);
+    if (
+      item &&
+      item.round &&
+      (item.lottery.state === 'active' ||
+        item.lottery.state === 'paused' ||
+        item.lottery.state === 'pendingDisable')
+    ) {
+      return { lottery: item.lottery, round: item.round };
+    }
+  }
+  return null;
 }

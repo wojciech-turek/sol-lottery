@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { CheckCircle, Loader2 } from 'lucide-react';
 
 import { useSession } from '@/components/session-provider';
 import { useAdminActions } from '@/hooks/use-admin-actions';
@@ -77,7 +78,12 @@ export function CreateLotteryForm() {
     ticketPriceSol > 0 &&
     actions.status !== 'pending';
 
+  const [indexerStatus, setIndexerStatus] = useState<'idle' | 'waiting' | 'done'>(
+    'idle',
+  );
+
   const submit = async () => {
+    setIndexerStatus('idle');
     await actions.createLottery({
       name,
       durationSeconds: durationMinutes * 60,
@@ -87,8 +93,32 @@ export function CreateLotteryForm() {
       manualResolution,
       splits,
     });
-    if (actions.error == null) {
+    if (actions.error == null && actions.lastCreatedPubkey) {
+      setIndexerStatus('waiting');
+      const pubkey = actions.lastCreatedPubkey;
+      // Poll the lightweight existence probe until the indexer has
+      // written the row. Cap at 30s; after that we still refresh the
+      // server component so the new tab shows even if the indexer is
+      // running behind.
+      const deadline = Date.now() + 30_000;
+      while (Date.now() < deadline) {
+        try {
+          const res = await fetch(
+            `/api/admin/lottery/exists?pubkey=${pubkey}`,
+          );
+          const data = (await res.json()) as { exists: boolean };
+          if (data.exists) {
+            setIndexerStatus('done');
+            break;
+          }
+        } catch {
+          /* keep trying */
+        }
+        await new Promise((r) => setTimeout(r, 500));
+      }
       router.refresh();
+      // Hide the modal a beat after success so the checkmark is visible.
+      setTimeout(() => setIndexerStatus('idle'), 1_500);
     }
   };
 
@@ -291,6 +321,37 @@ export function CreateLotteryForm() {
           </button>
         </div>
       </div>
+
+      {indexerStatus !== 'idle' && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="glass rounded-lg px-6 py-5 max-w-sm w-full mx-4 flex flex-col items-center gap-3">
+            {indexerStatus === 'waiting' ? (
+              <>
+                <Loader2 className="w-6 h-6 text-primary animate-spin" />
+                <p className="text-foreground text-sm font-medium">
+                  Lottery created on chain
+                </p>
+                <p className="text-muted-foreground text-xs text-center leading-snug">
+                  Waiting for the indexer to catch up so it shows in your tab
+                  list and on the landing page. This usually takes a couple
+                  of seconds.
+                </p>
+              </>
+            ) : (
+              <>
+                <CheckCircle className="w-6 h-6 text-success" />
+                <p className="text-foreground text-sm font-medium">
+                  Ready — lottery indexed
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </section>
   );
 }

@@ -26,6 +26,7 @@ import {
   SystemProgram,
 } from '@solana/web3.js';
 import { Orao } from '@orao-network/solana-vrf';
+import BN from 'bn.js';
 import {
   buildResolveAccounts,
   createProgram,
@@ -34,6 +35,7 @@ import {
   oraoRandomnessAccount,
   ORAO_PROGRAM_ID,
   roundPda,
+  ticketShardPda,
   type LotteryProgram,
 } from '@sol-lottery/sdk';
 import { prisma } from '@sol-lottery/db';
@@ -75,7 +77,10 @@ async function tick(
     try {
       await resolveIfDue(conn, program, oraoClient, resolver, treasury, row, now);
     } catch (err) {
-      console.error(`[resolver] ${row.pubkey} failed`, (err as Error).message);
+      const e = err as Error;
+      console.error(
+        `[resolver] ${row.pubkey} failed ${e.message}\n${e.stack ?? ''}`,
+      );
     }
   }
 }
@@ -97,9 +102,21 @@ async function resolveIfDue(
   const round = roundPda(lottery, currentRoundIndex);
   const roundAcct: any = await program.account.round.fetch(round);
   const roundState = enumKey(roundAcct.state);
-  if (roundState === 'resolved') return;
   const ticketsSold = Number(roundAcct.ticketsSold);
-  if (ticketsSold === 0) return; // empty rounds need admin's resolve_empty
+
+  // Already-resolved round but lottery.currentRoundIndex never advanced
+  // — recovery path for a crash between resolve_empty and open_round.
+  if (roundState === 'resolved') {
+    const recovery: any = await program.account.lottery.fetch(lottery);
+    if (
+      !!recovery.autoRollover &&
+      enumKey(recovery.state) === 'active' &&
+      BigInt(recovery.currentRoundIndex.toString()) === currentRoundIndex
+    ) {
+      await openNextRound(program, resolver, lottery, currentRoundIndex, round, row.name);
+    }
+    return;
+  }
 
   const startedAt = Number(roundAcct.startedAt);
   const durationSec = Number(roundAcct.durationSeconds);
@@ -110,6 +127,41 @@ async function resolveIfDue(
   // to the consume polling loop below.
   if (roundState === 'open' && effectiveEnd > now) return;
   if (roundAcct.pausedAt) return; // paused rounds are off-limits
+
+  // Empty round: no VRF needed. Admin signs `resolve_empty_round`, then
+  // we manually open the next round if auto_rollover is on (the empty
+  // path deliberately does NOT roll over inside the program).
+  if (ticketsSold === 0) {
+    const cfgPda = globalConfigPda();
+    try {
+      const sig = await program.methods
+        .resolveEmptyRound()
+        .accountsPartial({
+          globalConfig: cfgPda,
+          lottery,
+          round,
+          admin: resolver.publicKey,
+        })
+        .signers([resolver])
+        .rpc();
+      console.log(
+        `[resolver] ${row.name} resolve_empty_round → ${sig.slice(0, 12)}…`,
+      );
+    } catch (err) {
+      const msg = String((err as Error).message);
+      if (!msg.includes('RoundAlreadyResolved')) throw err;
+    }
+    // Atomic-rollover doesn't fire for empty rounds; open the next round
+    // ourselves so the lottery keeps ticking.
+    const lotteryForRollover: any = await program.account.lottery.fetch(lottery);
+    if (
+      !!lotteryForRollover.autoRollover &&
+      enumKey(lotteryForRollover.state) === 'active'
+    ) {
+      await openNextRound(program, resolver, lottery, currentRoundIndex, round, row.name);
+    }
+    return;
+  }
 
   const cfg = globalConfigPda();
   const vrfRequest = oraoRandomnessAccount(round);
@@ -172,10 +224,12 @@ async function resolveIfDue(
   const lotteryAcct2: any = await program.account.lottery.fetch(lottery);
   const wantRollover =
     !!lotteryAcct2.autoRollover && enumKey(lotteryAcct2.state) === 'active';
-  const resolveAccts = await buildResolveAccounts(program, round, randomness, {
-    rollover: wantRollover,
-  });
-  try {
+  const tryConsume = async (
+    withRollover: boolean,
+  ): Promise<{ sig: string; winner: PublicKey; rolledOver: boolean }> => {
+    const accts = await buildResolveAccounts(program, round, randomness!, {
+      rollover: withRollover,
+    });
     const sig = await program.methods
       .consumeOraoResolution()
       .accountsPartial({
@@ -183,22 +237,124 @@ async function resolveIfDue(
         lottery,
         round,
         vrfRequest,
-        winnerShard: resolveAccts.winnerShard,
+        winnerShard: accts.winnerShard,
         caller: resolver.publicKey,
-        nextRound: resolveAccts.nextRound,
-        nextShard: resolveAccts.nextShard,
-        systemProgram: resolveAccts.systemProgram,
+        nextRound: accts.nextRound,
+        nextShard: accts.nextShard,
+        systemProgram: accts.systemProgram,
       })
-      .remainingAccounts(resolveAccts.remainingAccounts)
+      .remainingAccounts(accts.remainingAccounts)
       .signers([resolver])
       .rpc();
+    return { sig, winner: accts.winner, rolledOver: withRollover };
+  };
+
+  try {
+    const { sig, winner, rolledOver } = await tryConsume(wantRollover);
     console.log(
-      `[resolver] ${row.name} resolved → winner ${resolveAccts.winner.toBase58().slice(0, 8)}… sig ${sig.slice(0, 12)}…`,
+      `[resolver] ${row.name} resolved → winner ${winner.toBase58().slice(0, 8)}… rollover=${rolledOver} sig ${sig.slice(0, 12)}…`,
     );
   } catch (err) {
     const msg = String((err as Error).message);
     if (msg.includes('RoundAlreadyResolved')) return;
+    // Fallback: if rollover failed, settle the round without it. Operator
+    // can then open the next round manually from /admin. This makes the
+    // resolver self-healing — the prize always gets distributed even when
+    // the atomic-rollover path has issues.
+    if (wantRollover && msg.includes('balances')) {
+      console.warn(
+        `[resolver] ${row.name} rollover path failed (${msg.slice(0, 80)}); retrying without rollover`,
+      );
+      const { sig, winner } = await tryConsume(false);
+      console.log(
+        `[resolver] ${row.name} resolved (no rollover) → winner ${winner.toBase58().slice(0, 8)}… sig ${sig.slice(0, 12)}…`,
+      );
+      return;
+    }
     throw err;
+  }
+}
+
+async function openNextRound(
+  program: LotteryProgram,
+  resolver: Keypair,
+  lottery: PublicKey,
+  currentRoundIndex: bigint,
+  previousRound: PublicKey,
+  name: string,
+): Promise<void> {
+  const cfgPda = globalConfigPda();
+  const nextIndex = currentRoundIndex + 1n;
+  const nextRound = roundPda(lottery, nextIndex);
+  const nextShard = ticketShardPda(nextRound, 0);
+  // Validators may race the previous round's resolve tx — they hit
+  // `PreviousRoundNotResolved` if they're a slot behind. Retry briefly.
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      const sig = await program.methods
+        .openRound(new BN(nextIndex))
+        .accountsPartial({
+          globalConfig: cfgPda,
+          lottery,
+          previousRound,
+          round: nextRound,
+          shardZero: nextShard,
+          payer: resolver.publicKey,
+          systemProgram: SystemProgram.programId,
+        })
+        .signers([resolver])
+        .rpc();
+      console.log(`[resolver] ${name} open_round(${nextIndex}) → ${sig.slice(0, 12)}…`);
+      return;
+    } catch (err) {
+      const msg = String((err as Error).message);
+      if (msg.includes('already in use')) return;
+      if (msg.includes('PreviousRoundNotResolved') && attempt < 3) {
+        await new Promise((r) => setTimeout(r, 1_500));
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
+// Module-scope handles populated by startResolver so the scheduler can
+// trigger a one-shot resolve for a specific lottery without waiting for
+// the next 15s tick.
+let resolveHandle: {
+  conn: Connection;
+  program: LotteryProgram;
+  oraoClient: Orao;
+  resolver: Keypair;
+  treasury: PublicKey;
+} | null = null;
+
+export async function kickResolve(lotteryPubkey: string): Promise<void> {
+  if (!resolveHandle) return;
+  const { conn, program, oraoClient, resolver, treasury } = resolveHandle;
+  const row = await prisma.lottery.findUnique({
+    where: { pubkey: lotteryPubkey },
+    select: { pubkey: true, name: true, state: true, manualResolution: true },
+  });
+  if (!row) return;
+  if (row.manualResolution) return;
+  if (row.state !== 'ACTIVE' && row.state !== 'PENDING_DISABLE') return;
+  const now = Math.floor(Date.now() / 1000);
+  try {
+    await resolveIfDue(
+      conn,
+      program,
+      oraoClient,
+      resolver,
+      treasury,
+      { pubkey: row.pubkey, name: row.name },
+      now,
+    );
+  } catch (err) {
+    console.error(
+      `[resolver] kick ${lotteryPubkey} failed`,
+      (err as Error).message,
+    );
   }
 }
 
@@ -224,6 +380,7 @@ export async function startResolver(): Promise<void> {
   });
   const oraoClient = new Orao(oraoProvider);
   const treasury = await oraoTreasury(conn);
+  resolveHandle = { conn, program, oraoClient, resolver, treasury };
   console.log(
     `[resolver] running every ${TICK_MS}ms with wallet ${resolver.publicKey.toBase58()}`,
   );

@@ -168,12 +168,14 @@ async function handleEvent(
     case 'RoundOpened': {
       const startedAt = big(data.started_at);
       const effectiveEnd = big(data.effective_end);
+      const lotteryPubkey = (data.lottery as PublicKey).toBase58();
+      const roundIndex = big(data.index);
       await prisma.lotteryRound.upsert({
         where: { pubkey: (data.round as PublicKey).toBase58() },
         create: {
           pubkey: (data.round as PublicKey).toBase58(),
-          lotteryPubkey: (data.lottery as PublicKey).toBase58(),
-          index: big(data.index),
+          lotteryPubkey,
+          index: roundIndex,
           state: RoundState.OPEN,
           ticketPriceLamports: big(data.ticket_price_lamports),
           durationSeconds: effectiveEnd - startedAt,
@@ -182,6 +184,13 @@ async function handleEvent(
         },
         update: {},
       });
+      // Wake the resolver precisely at the deadline so the
+      // "deadline → request_orao" hop isn't bound by the 15s tick.
+      const { scheduleResolveAt } = await import('./scheduler');
+      const { kickResolve } = await import('./resolver');
+      scheduleResolveAt(lotteryPubkey, roundIndex, Number(effectiveEnd), () =>
+        kickResolve(lotteryPubkey),
+      );
       break;
     }
 
@@ -298,8 +307,25 @@ async function main(): Promise<void> {
 
   console.log(`[indexer] subscribing to ${programId.toBase58()} via ${RPC_URL}`);
 
-  const { startResolver } = await import('./resolver');
-  startResolver().catch((err) => console.error('[resolver] failed to start', err));
+  const { startResolver, kickResolve } = await import('./resolver');
+  await startResolver().catch((err) => console.error('[resolver] failed to start', err));
+
+  // Re-arm precise schedulers for every currently-open round in the DB.
+  // Without this, rounds opened before this indexer process started would
+  // only get caught by the slow 15s tick on the next deadline-pass.
+  const { scheduleResolveAt } = await import('./scheduler');
+  const openRounds = await prisma.lotteryRound.findMany({
+    where: { state: 'OPEN' },
+    select: { lotteryPubkey: true, index: true, effectiveEnd: true },
+  });
+  for (const r of openRounds) {
+    scheduleResolveAt(
+      r.lotteryPubkey,
+      r.index,
+      Math.floor(r.effectiveEnd.getTime() / 1000),
+      () => kickResolve(r.lotteryPubkey),
+    );
+  }
 
   const fetcher: Fetcher = {
     lottery: (k) => program.account.lottery.fetch(k),
@@ -353,21 +379,26 @@ async function main(): Promise<void> {
 
     for (const event of events) {
       try {
-        await prisma.rawEvent.upsert({
-          where: { txSignature: ctx.signature },
-          create: {
-            txSignature: ctx.signature,
-            slot: ctx.slot,
-            blockTime,
-            eventName: event.name,
-            payload: JSON.parse(
-              JSON.stringify(event.data, (_k, v) =>
-                typeof v === 'bigint' ? v.toString() : v,
+        try {
+          await prisma.rawEvent.create({
+            data: {
+              txSignature: ctx.signature,
+              slot: ctx.slot,
+              blockTime,
+              eventName: event.name,
+              payload: JSON.parse(
+                JSON.stringify(event.data, (_k, v) =>
+                  typeof v === 'bigint' ? v.toString() : v,
+                ),
               ),
-            ),
-          },
-          update: {},
-        });
+            },
+          });
+        } catch (e: any) {
+          // P2002 = unique constraint on tx_signature; another in-flight
+          // onLogs raced us with the same tx. Safe to ignore — the row's
+          // already there and downstream handlers are idempotent.
+          if (e?.code !== 'P2002') throw e;
+        }
         await handleEvent(event.name, event.data, ctx, fetcher);
         console.log(`[indexer] ${event.name} sig=${ctx.signature}`);
       } catch (err) {
