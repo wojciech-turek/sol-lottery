@@ -50,6 +50,7 @@ export function PoolDisplay() {
   });
   useEffect(() => {
     if (paused || !effectiveEndUnix) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPastDeadline(false);
       return;
     }
@@ -87,6 +88,10 @@ export function PoolDisplay() {
 
   useEffect(() => {
     if (!buyDisabled) return;
+    // Clearing the batch debounce when the buy button becomes unavailable
+    // (round ended, lottery paused, etc.) is a synchronization with
+    // external state — same exception as wallet-modal.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPendingQty(0);
     if (debounceTimer.current) {
       clearTimeout(debounceTimer.current);
@@ -149,9 +154,16 @@ export function PoolDisplay() {
           <span className="text-primary-foreground/60 text-[8px] md:text-[10px] uppercase tracking-wider">
             Pool
           </span>
-          <span className="text-primary-foreground text-2xl md:text-3xl lg:text-4xl font-bold font-mono tabular-nums">
-            {data ? sol.toFixed(2) : '—'}
-          </span>
+          {data ? (
+            <span className="text-primary-foreground text-2xl md:text-3xl lg:text-4xl font-bold font-mono tabular-nums">
+              {sol.toFixed(2)}
+            </span>
+          ) : (
+            <span
+              className="my-1 h-7 w-16 md:h-9 md:w-20 lg:h-10 lg:w-24 rounded bg-primary-foreground/20 animate-pulse"
+              aria-label="Loading pool amount"
+            />
+          )}
           <span className="text-primary-foreground/70 text-xs md:text-sm font-medium">
             SOL
           </span>

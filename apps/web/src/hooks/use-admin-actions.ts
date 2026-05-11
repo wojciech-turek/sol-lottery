@@ -5,7 +5,7 @@ import { Orao } from '@orao-network/solana-vrf';
 import { AnchorProvider } from '@coral-xyz/anchor';
 import { useAnchorWallet, useConnection } from '@solana/wallet-adapter-react';
 import { PublicKey, SystemProgram } from '@solana/web3.js';
-import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
 
 import {
@@ -34,16 +34,16 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 export function useAdminActions() {
   const { connection } = useConnection();
   const wallet = useAnchorWallet();
-  const router = useRouter();
+  const queryClient = useQueryClient();
   const [status, setStatus] = useState<AdminTxStatus>('idle');
   const [error, setError] = useState<string | null>(null);
   const [lastCreatedPubkey, setLastCreatedPubkey] = useState<string | null>(null);
   const [progress, setProgress] = useState<string | null>(null);
 
-  const requireWallet = () => {
+  const requireWallet = useCallback(() => {
     if (!wallet) throw new Error('Connect a wallet first');
     return wallet;
-  };
+  }, [wallet]);
 
   const wrap = useCallback(
     async (label: string, fn: () => Promise<void>) => {
@@ -54,14 +54,21 @@ export function useAdminActions() {
         await fn();
         setStatus('success');
         setProgress(null);
-        router.refresh();
-      } catch (err: any) {
-        setError(parseAnchor(err) ?? err?.message ?? 'tx failed');
+        // The on-chain tx confirmed. The indexer will write the resulting
+        // state to Postgres within ~500ms and Realtime will fire a
+        // postgres_changes event which invalidates this query naturally.
+        // We invalidate here too so the optimistic feedback (button label,
+        // disabled state) flips immediately without waiting for the WS.
+        void queryClient.invalidateQueries({ queryKey: ['lottery'] });
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'tx failed';
+        setError(parseAnchor(err) ?? message);
         setStatus('error');
         setProgress(null);
       }
     },
-    [router],
+    [queryClient],
   );
 
   const pause = useCallback(
@@ -79,7 +86,7 @@ export function useAdminActions() {
           })
           .rpc();
       }),
-    [connection, wrap, wallet],
+    [connection, requireWallet, wrap],
   );
 
   const resume = useCallback(
@@ -97,7 +104,7 @@ export function useAdminActions() {
           })
           .rpc();
       }),
-    [connection, wrap, wallet],
+    [connection, requireWallet, wrap],
   );
 
   const beginDisable = useCallback(
@@ -114,7 +121,7 @@ export function useAdminActions() {
           })
           .rpc();
       }),
-    [connection, wrap, wallet],
+    [connection, requireWallet, wrap],
   );
 
   const closeLottery = useCallback(
@@ -131,7 +138,7 @@ export function useAdminActions() {
           })
           .rpc();
       }),
-    [connection, wrap, wallet],
+    [connection, requireWallet, wrap],
   );
 
   const openNextRound = useCallback(
@@ -160,7 +167,7 @@ export function useAdminActions() {
           })
           .rpc();
       }),
-    [connection, wrap, wallet],
+    [connection, requireWallet, wrap],
   );
 
   const updatePrice = useCallback(
@@ -177,7 +184,7 @@ export function useAdminActions() {
           })
           .rpc();
       }),
-    [connection, wrap, wallet],
+    [connection, requireWallet, wrap],
   );
 
   const updateDuration = useCallback(
@@ -194,7 +201,7 @@ export function useAdminActions() {
           })
           .rpc();
       }),
-    [connection, wrap, wallet],
+    [connection, requireWallet, wrap],
   );
 
   const updateSplits = useCallback(
@@ -226,7 +233,7 @@ export function useAdminActions() {
           })
           .rpc();
       }),
-    [connection, wrap, wallet],
+    [connection, requireWallet, wrap],
   );
 
   /**
@@ -273,11 +280,13 @@ export function useAdminActions() {
               systemProgram: SystemProgram.programId,
             })
             .rpc();
-        } catch (err: any) {
-          if (!String(err).includes('RoundAlreadyResolved')) {
-            // RoundAlreadyResolved means we're past this step; otherwise rethrow.
-            const msg = String(err);
-            if (!msg.includes('VrfAlreadyRequested')) throw err;
+        } catch (err) {
+          const msg = String(err);
+          if (
+            !msg.includes('RoundAlreadyResolved') &&
+            !msg.includes('VrfAlreadyRequested')
+          ) {
+            throw err;
           }
         }
 
@@ -287,8 +296,12 @@ export function useAdminActions() {
         let randomness: Buffer | null = null;
         while (Date.now() - start < 120_000) {
           try {
-            const acct = await oraoClient.getRandomness(roundPk.toBytes());
-            const data = (acct as any).getFulfilledRandomness?.();
+            const acct = (await oraoClient.getRandomness(
+              roundPk.toBytes(),
+            )) as unknown as {
+              getFulfilledRandomness?: () => Uint8Array | undefined;
+            };
+            const data = acct.getFulfilledRandomness?.();
             if (data && data.length === 64) {
               randomness = Buffer.from(data);
               break;
@@ -324,7 +337,7 @@ export function useAdminActions() {
           .remainingAccounts(accounts.remainingAccounts)
           .rpc();
       }),
-    [connection, wrap, wallet],
+    [connection, requireWallet, wrap],
   );
 
   /**
@@ -351,7 +364,9 @@ export function useAdminActions() {
 
         // Read GlobalConfig.next_lottery_id to know the new lottery's id.
         const cfgPda = globalConfigPda();
-        const cfg: any = await program.account.globalConfig.fetch(cfgPda);
+        const cfg = (await program.account.globalConfig.fetch(
+          cfgPda,
+        )) as unknown as { nextLotteryId: { toString(): string } };
         const nextId = BigInt(cfg.nextLotteryId.toString());
         const newLottery = lotteryPda(nextId);
         setLastCreatedPubkey(newLottery.toBase58());
@@ -413,7 +428,7 @@ export function useAdminActions() {
           /* non-fatal — defaults to auto-resolution */
         }
       }),
-    [connection, wrap, wallet],
+    [connection, requireWallet, wrap],
   );
 
   return {

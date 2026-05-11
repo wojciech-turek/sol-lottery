@@ -56,8 +56,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setMeLoaded(true);
   }, []);
 
-  // Initial /me fetch.
+  // Initial /me fetch. The `setMeLoaded(true)` runs in a catch handler
+  // (i.e. asynchronously, not synchronously inside the effect body), but
+  // the lint rule can't distinguish — disable for this case.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refresh().catch(() => setMeLoaded(true));
   }, [refresh]);
 

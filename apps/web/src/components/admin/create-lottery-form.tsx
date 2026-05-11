@@ -1,12 +1,13 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { CheckCircle, Loader2 } from 'lucide-react';
 
 import { useSession } from '@/components/session-provider';
 import { useAdminActions } from '@/hooks/use-admin-actions';
 import { clientEnv } from '@/lib/env';
+import { getBrowserSupabase } from '@/lib/supabase/client';
 
 interface SplitDraft {
   label: string;
@@ -20,7 +21,7 @@ const POOL_PUBKEY_PLACEHOLDER = '11111111111111111111111111111111';
 export function CreateLotteryForm() {
   const { pubkey } = useSession();
   const actions = useAdminActions();
-  const router = useRouter();
+  const queryClient = useQueryClient();
 
   const [name, setName] = useState("Daily 15-min draw");
   const [durationMinutes, setDurationMinutes] = useState(15);
@@ -95,28 +96,38 @@ export function CreateLotteryForm() {
     });
     if (actions.error == null && actions.lastCreatedPubkey) {
       setIndexerStatus('waiting');
-      const pubkey = actions.lastCreatedPubkey;
-      // Poll the lightweight existence probe until the indexer has
-      // written the row. Cap at 30s; after that we still refresh the
-      // server component so the new tab shows even if the indexer is
-      // running behind.
-      const deadline = Date.now() + 30_000;
-      while (Date.now() < deadline) {
-        try {
-          const res = await fetch(
-            `/api/admin/lottery/exists?pubkey=${pubkey}`,
-          );
-          const data = (await res.json()) as { exists: boolean };
-          if (data.exists) {
-            setIndexerStatus('done');
-            break;
-          }
-        } catch {
-          /* keep trying */
-        }
-        await new Promise((r) => setTimeout(r, 500));
-      }
-      router.refresh();
+      const newPubkey = actions.lastCreatedPubkey;
+      // Wait for the indexer to write the new Lottery row by listening
+      // for the postgres_changes INSERT event on the supabase_realtime
+      // channel. Cap at 30s and fall through anyway so the modal doesn't
+      // hang if Realtime is degraded — the AdminTabs query will catch up
+      // on the next scheduled invalidation regardless.
+      await new Promise<void>((resolve) => {
+        const supabase = getBrowserSupabase();
+        const timeout = setTimeout(() => {
+          void supabase.removeChannel(channel);
+          resolve();
+        }, 30_000);
+        const channel = supabase
+          .channel(`lottery-created-${newPubkey}`)
+          .on(
+            'postgres_changes',
+            {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'lottery',
+              filter: `pubkey=eq.${newPubkey}`,
+            },
+            () => {
+              clearTimeout(timeout);
+              void supabase.removeChannel(channel);
+              resolve();
+            },
+          )
+          .subscribe();
+      });
+      setIndexerStatus('done');
+      void queryClient.invalidateQueries({ queryKey: ['lottery'] });
       // Hide the modal a beat after success so the checkmark is visible.
       setTimeout(() => setIndexerStatus('idle'), 1_500);
     }

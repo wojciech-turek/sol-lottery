@@ -181,6 +181,7 @@ async function handleEvent(
           durationSeconds: effectiveEnd - startedAt,
           startedAt: new Date(Number(startedAt) * 1000),
           effectiveEnd: new Date(Number(effectiveEnd) * 1000),
+          currentShardIndex: 0,
         },
         update: {},
       });
@@ -309,6 +310,11 @@ async function main(): Promise<void> {
 
   const { startResolver, kickResolve } = await import('./resolver');
   await startResolver().catch((err) => console.error('[resolver] failed to start', err));
+
+  const { startShardTracker } = await import('./shard-tracker');
+  await startShardTracker(connection).catch((err) =>
+    console.error('[shard-tracker] failed to start', err),
+  );
 
   // Re-arm precise schedulers for every currently-open round in the DB.
   // Without this, rounds opened before this indexer process started would

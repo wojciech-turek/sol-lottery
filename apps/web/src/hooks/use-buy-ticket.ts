@@ -101,8 +101,16 @@ export function useBuyTicket(args: BuyArgs) {
         console.error('[buy] failed', err);
         const msg =
           err instanceof Error ? err.message : 'failed to buy';
-        setError(parseAnchorError(err) ?? msg);
+        const code = anchorErrorCode(err);
+        setError(anchorErrorMessage(code) ?? msg);
         setStatus('error');
+        // Shard rotated on chain but we hadn't picked it up yet
+        // (shard-tracker has up to ~15s of staleness). Force a snapshot
+        // refetch so the next click has the correct shard PDA — the
+        // indexer's shard-tracker will have written the new index by now.
+        if (code === 'TicketShardFull') {
+          void queryClient.invalidateQueries({ queryKey: SNAPSHOT_KEY });
+        }
       }
     },
     [
@@ -124,20 +132,24 @@ export function useBuyTicket(args: BuyArgs) {
   return { buy, reset, status, error, signature };
 }
 
-function parseAnchorError(err: unknown): string | null {
+function anchorErrorCode(err: unknown): string | null {
   const msg = String((err as Error)?.message ?? err);
   // Anchor errors are like "Error Code: RoundExpired. Error Number: …"
   const m = msg.match(/Error Code: (\w+)/);
-  if (!m) return null;
-  switch (m[1]) {
+  return m ? m[1] : null;
+}
+
+function anchorErrorMessage(code: string | null): string | null {
+  if (!code) return null;
+  switch (code) {
     case 'RoundExpired':
       return 'Round timer ended — wait for the draw';
     case 'LotteryPaused':
     case 'LotteryNotActive':
       return 'Lottery is paused';
     case 'TicketShardFull':
-      return 'Ticket shard is full — admin needs to allocate a new one';
+      return 'Shard rotated — try again';
     default:
-      return `${m[1]}: ${msg}`;
+      return code;
   }
 }

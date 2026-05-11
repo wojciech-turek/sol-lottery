@@ -36,19 +36,25 @@ export function CountdownCard() {
       <div
         className={`flex items-center justify-center gap-0.5 md:gap-1 font-mono text-base md:text-lg ${
           paused ? 'opacity-50' : ''
-        } ${!data ? 'opacity-40' : ''}`}
+        }`}
       >
-        <span className="text-foreground tabular-nums">
-          {data ? h : '--'}
-        </span>
-        <span className="text-muted-foreground/50">:</span>
-        <span className="text-foreground tabular-nums">
-          {data ? m : '--'}
-        </span>
-        <span className="text-muted-foreground/50">:</span>
-        <span className="text-foreground tabular-nums">
-          {data ? s : '--'}
-        </span>
+        {data ? (
+          <>
+            <span className="text-foreground tabular-nums">{h}</span>
+            <span className="text-muted-foreground/50">:</span>
+            <span className="text-foreground tabular-nums">{m}</span>
+            <span className="text-muted-foreground/50">:</span>
+            <span className="text-foreground tabular-nums">{s}</span>
+          </>
+        ) : (
+          <>
+            <span className="h-4 w-6 rounded bg-foreground/10 animate-pulse" />
+            <span className="text-muted-foreground/50">:</span>
+            <span className="h-4 w-6 rounded bg-foreground/10 animate-pulse" />
+            <span className="text-muted-foreground/50">:</span>
+            <span className="h-4 w-6 rounded bg-foreground/10 animate-pulse" />
+          </>
+        )}
       </div>
     </div>
   );

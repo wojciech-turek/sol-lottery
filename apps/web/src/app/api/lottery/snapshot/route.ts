@@ -1,27 +1,16 @@
 import { NextResponse } from 'next/server';
-import { PublicKey } from '@solana/web3.js';
 
 import { prisma } from '@sol-lottery/db';
 
 import { getLotterySplits, poolBpsOf } from '@/lib/chain/lottery-config';
-import { getServerProgram } from '@/lib/chain/server';
+import {
+  LOTTERY_STATE_MAP,
+  PRIZE_KIND_MAP,
+  ROUND_STATE_MAP,
+} from '@/lib/db-enums';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-const LOTTERY_STATE_MAP = {
-  ACTIVE: 'active',
-  PAUSED: 'paused',
-  PENDING_DISABLE: 'pendingDisable',
-  DISABLED: 'disabled',
-} as const;
-
-const ROUND_STATE_MAP = {
-  OPEN: 'open',
-  CLOSED: 'closed',
-  AWAITING_VRF: 'awaitingVrf',
-  RESOLVED: 'resolved',
-} as const;
 
 /**
  * Active lottery + its current round, read entirely from the Prisma mirror
@@ -50,29 +39,10 @@ export async function GET(): Promise<NextResponse> {
   }
 
   const round = lottery.rounds[0];
-  const [splits, currentShardIndex] = await Promise.all([
-    getLotterySplits(lottery.pubkey).catch((err) => {
-      console.error('[api/snapshot] splits read failed', err);
-      return [];
-    }),
-    // currentShardIndex isn't mirrored in Postgres (indexer doesn't capture
-    // shard rotations yet), so we fetch the live round account for this
-    // single field. Buys depend on it to derive the correct shard PDA. This
-    // is the one chain read per snapshot request and runs only on Realtime
-    // invalidations + initial mount, not on a polling cadence.
-    (async () => {
-      try {
-        const { program } = getServerProgram();
-        const account = (await program.account.round.fetch(
-          new PublicKey(round.pubkey),
-        )) as unknown as { currentShardIndex: number };
-        return Number(account.currentShardIndex ?? 0);
-      } catch (err) {
-        console.error('[api/snapshot] shard read failed', err);
-        return 0;
-      }
-    })(),
-  ]);
+  const splits = await getLotterySplits(lottery.pubkey).catch((err) => {
+    console.error('[api/snapshot] splits read failed', err);
+    return [];
+  });
 
   // Pool while the round is live = tickets * price + donations.
   // Once resolved, the program writes the authoritative figure into
@@ -88,7 +58,7 @@ export async function GET(): Promise<NextResponse> {
         lotteryIndex: lottery.lotteryIndex.toString(),
         name: lottery.name,
         state: LOTTERY_STATE_MAP[lottery.state],
-        prizeKind: lottery.prizeKind === 'SOL' ? 'sol' : 'physical',
+        prizeKind: PRIZE_KIND_MAP[lottery.prizeKind],
         ticketPriceLamports: lottery.ticketPriceLamports.toString(),
         durationSeconds: lottery.durationSeconds.toString(),
         autoRollover: lottery.autoRollover,
@@ -104,7 +74,7 @@ export async function GET(): Promise<NextResponse> {
         effectiveEndUnix: Math.floor(round.effectiveEnd.getTime() / 1000),
         ticketsSold: round.ticketsSold.toString(),
         donatedLamports: round.donatedLamports.toString(),
-        currentShardIndex,
+        currentShardIndex: round.currentShardIndex,
         poolLamports: poolLamports.toString(),
       },
     },

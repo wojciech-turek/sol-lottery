@@ -49,11 +49,16 @@ function WalletModal() {
   const [selectedName, setSelectedName] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Close once we've connected + authenticated.
+  // Close once we've connected + authenticated. setState calls inside the
+  // effect are intentional here: this hook synchronizes modal lifecycle to
+  // the external wallet-adapter state, which is exactly the case the React
+  // 19 rule carves out for. Derived state isn't a fit because the modal
+  // also needs to be closeable independently of connection status.
   useEffect(() => {
     if (!isOpen) return;
     if (connected && !isAuthenticating) {
       close();
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedName(null);
       setErrorMessage(null);
     }
@@ -68,8 +73,10 @@ function WalletModal() {
         // Yield a tick so the WalletProvider commits the selection.
         await new Promise((r) => setTimeout(r, 50));
         await connect();
-      } catch (err: any) {
-        setErrorMessage(err?.message ?? 'failed to connect');
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'failed to connect';
+        setErrorMessage(message);
         setSelectedName(null);
       }
     },
@@ -109,7 +116,7 @@ function WalletModal() {
           </button>
         </div>
         <p className="text-xs text-zinc-400 mb-4">
-          You'll be asked to sign a short message to prove you own the wallet. No
+          You&apos;ll be asked to sign a short message to prove you own the wallet. No
           transaction is sent and nothing leaves your wallet.
         </p>
         <div className="grid gap-2">

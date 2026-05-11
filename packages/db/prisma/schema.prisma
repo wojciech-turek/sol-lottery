@@ -89,6 +89,7 @@ model LotteryRound {
   poolAmountLamports        BigInt?                                             @map("pool_amount_lamports")
   totalDistributedLamports  BigInt?                                             @map("total_distributed_lamports")
   resolvedAt                DateTime?                                           @map("resolved_at")
+  currentShardIndex         Int                 @default(0)                     @map("current_shard_index")
 
   tickets                   TicketPurchase[]
   donations                 Donation[]
