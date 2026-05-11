@@ -1,0 +1,3985 @@
+{
+  "address": "HQ86E1qrGs7axPuNZKHsc23MUhL9SFKdygkNM8K95uop",
+  "metadata": {
+    "name": "lottery",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "On-chain lottery program for sol-lottery"
+  },
+  "instructions": [
+    {
+      "name": "accept_admin",
+      "discriminator": [
+        112,
+        42,
+        45,
+        90,
+        116,
+        181,
+        13,
+        170
+      ],
+      "accounts": [
+        {
+          "name": "global_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "new_admin",
+          "docs": [
+            "The pubkey proposed in `propose_admin`, signing to confirm."
+          ],
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "allocate_shard",
+      "discriminator": [
+        168,
+        31,
+        44,
+        209,
+        41,
+        237,
+        6,
+        188
+      ],
+      "accounts": [
+        {
+          "name": "lottery",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  111,
+                  116,
+                  116,
+                  101,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery.id",
+                "account": "Lottery"
+              }
+            ]
+          }
+        },
+        {
+          "name": "round",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  111,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery"
+              },
+              {
+                "kind": "account",
+                "path": "round.index",
+                "account": "Round"
+              }
+            ]
+          }
+        },
+        {
+          "name": "previous_shard",
+          "docs": [
+            "The shard that's currently active (and full)."
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  104,
+                  97,
+                  114,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "round"
+              },
+              {
+                "kind": "account",
+                "path": "round.current_shard",
+                "account": "Round"
+              }
+            ]
+          }
+        },
+        {
+          "name": "new_shard",
+          "docs": [
+            "The new shard being allocated; must equal `round.current_shard + 1`."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  104,
+                  97,
+                  114,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "round"
+              },
+              {
+                "kind": "arg",
+                "path": "new_shard_index"
+              }
+            ]
+          }
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "new_shard_index",
+          "type": "u32"
+        }
+      ]
+    },
+    {
+      "name": "begin_disable_lottery",
+      "discriminator": [
+        137,
+        121,
+        157,
+        207,
+        218,
+        211,
+        187,
+        216
+      ],
+      "accounts": [
+        {
+          "name": "global_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "lottery",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  111,
+                  116,
+                  116,
+                  101,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery.id",
+                "account": "Lottery"
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "global_config"
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "buy_tickets",
+      "discriminator": [
+        48,
+        16,
+        122,
+        137,
+        24,
+        214,
+        198,
+        58
+      ],
+      "accounts": [
+        {
+          "name": "lottery",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  111,
+                  116,
+                  116,
+                  101,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery.id",
+                "account": "Lottery"
+              }
+            ]
+          }
+        },
+        {
+          "name": "round",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  111,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery"
+              },
+              {
+                "kind": "account",
+                "path": "round.index",
+                "account": "Round"
+              }
+            ]
+          }
+        },
+        {
+          "name": "current_shard",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  104,
+                  97,
+                  114,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "round"
+              },
+              {
+                "kind": "account",
+                "path": "round.current_shard",
+                "account": "Round"
+              }
+            ]
+          }
+        },
+        {
+          "name": "buyer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "quantity",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "close_lottery",
+      "discriminator": [
+        253,
+        97,
+        216,
+        187,
+        251,
+        189,
+        113,
+        22
+      ],
+      "accounts": [
+        {
+          "name": "global_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "lottery",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  111,
+                  116,
+                  116,
+                  101,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery.id",
+                "account": "Lottery"
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "global_config"
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "close_shard",
+      "discriminator": [
+        18,
+        225,
+        167,
+        168,
+        223,
+        60,
+        73,
+        176
+      ],
+      "accounts": [
+        {
+          "name": "global_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "lottery",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  111,
+                  116,
+                  116,
+                  101,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery.id",
+                "account": "Lottery"
+              }
+            ]
+          }
+        },
+        {
+          "name": "round",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  111,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery"
+              },
+              {
+                "kind": "account",
+                "path": "round.index",
+                "account": "Round"
+              }
+            ]
+          }
+        },
+        {
+          "name": "shard",
+          "docs": [
+            "The shard to close."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  104,
+                  97,
+                  114,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "round"
+              },
+              {
+                "kind": "account",
+                "path": "shard.shard_index",
+                "account": "TicketShard"
+              }
+            ]
+          }
+        },
+        {
+          "name": "rent_recipient",
+          "docs": [
+            "Where the shard's rent goes. Pinned to the program admin so the rent",
+            "is reclaimable but no random caller can redirect it."
+          ],
+          "writable": true
+        },
+        {
+          "name": "caller",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "consume_orao_resolution",
+      "discriminator": [
+        32,
+        225,
+        220,
+        225,
+        143,
+        128,
+        2,
+        246
+      ],
+      "accounts": [
+        {
+          "name": "global_config"
+        },
+        {
+          "name": "lottery",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  111,
+                  116,
+                  116,
+                  101,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery.id",
+                "account": "Lottery"
+              }
+            ]
+          }
+        },
+        {
+          "name": "round",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  111,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery"
+              },
+              {
+                "kind": "account",
+                "path": "round.index",
+                "account": "Round"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vrf_request",
+          "docs": [
+            "ORAO's randomness account; we deserialize it manually."
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  111,
+                  45,
+                  118,
+                  114,
+                  102,
+                  45,
+                  114,
+                  97,
+                  110,
+                  100,
+                  111,
+                  109,
+                  110,
+                  101,
+                  115,
+                  115,
+                  45,
+                  114,
+                  101,
+                  113,
+                  117,
+                  101,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "round"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                7,
+                71,
+                177,
+                26,
+                250,
+                145,
+                180,
+                209,
+                249,
+                34,
+                242,
+                123,
+                14,
+                186,
+                193,
+                218,
+                178,
+                59,
+                33,
+                41,
+                164,
+                190,
+                243,
+                79,
+                50,
+                164,
+                123,
+                88,
+                245,
+                206,
+                252,
+                120
+              ]
+            }
+          }
+        },
+        {
+          "name": "winner_shard",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  104,
+                  97,
+                  114,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "round"
+              },
+              {
+                "kind": "account",
+                "path": "winner_shard.shard_index",
+                "account": "TicketShard"
+              }
+            ]
+          }
+        },
+        {
+          "name": "caller",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "next_round",
+          "writable": true,
+          "optional": true
+        },
+        {
+          "name": "next_shard",
+          "writable": true,
+          "optional": true
+        },
+        {
+          "name": "system_program",
+          "optional": true,
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "consume_resolution",
+      "discriminator": [
+        25,
+        182,
+        192,
+        132,
+        199,
+        248,
+        137,
+        9
+      ],
+      "accounts": [
+        {
+          "name": "global_config"
+        },
+        {
+          "name": "lottery",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  111,
+                  116,
+                  116,
+                  101,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery.id",
+                "account": "Lottery"
+              }
+            ]
+          }
+        },
+        {
+          "name": "round",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  111,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery"
+              },
+              {
+                "kind": "account",
+                "path": "round.index",
+                "account": "Round"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vrf_request",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  114,
+                  102
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "round"
+              }
+            ]
+          }
+        },
+        {
+          "name": "winner_shard",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  104,
+                  97,
+                  114,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "round"
+              },
+              {
+                "kind": "account",
+                "path": "winner_shard.shard_index",
+                "account": "TicketShard"
+              }
+            ]
+          }
+        },
+        {
+          "name": "caller",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "next_round",
+          "docs": [
+            "Optional rollover target — see `resolve_round.rs` for semantics."
+          ],
+          "writable": true,
+          "optional": true
+        },
+        {
+          "name": "next_shard",
+          "writable": true,
+          "optional": true
+        },
+        {
+          "name": "system_program",
+          "optional": true,
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "create_lottery",
+      "discriminator": [
+        242,
+        165,
+        247,
+        119,
+        17,
+        203,
+        21,
+        42
+      ],
+      "accounts": [
+        {
+          "name": "global_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "lottery",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  111,
+                  116,
+                  116,
+                  101,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "global_config.next_lottery_id",
+                "account": "GlobalConfig"
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "global_config"
+          ]
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "name",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "duration_seconds",
+          "type": "i64"
+        },
+        {
+          "name": "ticket_price_lamports",
+          "type": "u64"
+        },
+        {
+          "name": "prize_kind",
+          "type": {
+            "defined": {
+              "name": "PrizeKind"
+            }
+          }
+        },
+        {
+          "name": "auto_rollover",
+          "type": "bool"
+        },
+        {
+          "name": "splits",
+          "type": {
+            "vec": {
+              "defined": {
+                "name": "Split"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "donate_to_round",
+      "docs": [
+        "Top up the round's prize pool. The donation goes 100% to the winner",
+        "at resolve, on top of the percentages from ticket sales. Anyone may",
+        "donate; the lottery must have a pool split (i.e. a Sol-prize lottery)."
+      ],
+      "discriminator": [
+        199,
+        147,
+        117,
+        14,
+        46,
+        232,
+        91,
+        45
+      ],
+      "accounts": [
+        {
+          "name": "lottery",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  111,
+                  116,
+                  116,
+                  101,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery.id",
+                "account": "Lottery"
+              }
+            ]
+          }
+        },
+        {
+          "name": "round",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  111,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery"
+              },
+              {
+                "kind": "account",
+                "path": "round.index",
+                "account": "Round"
+              }
+            ]
+          }
+        },
+        {
+          "name": "donor",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "finalize_disable_lottery",
+      "discriminator": [
+        205,
+        149,
+        252,
+        130,
+        253,
+        105,
+        63,
+        221
+      ],
+      "accounts": [
+        {
+          "name": "global_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "lottery",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  111,
+                  116,
+                  116,
+                  101,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery.id",
+                "account": "Lottery"
+              }
+            ]
+          }
+        },
+        {
+          "name": "round",
+          "docs": [
+            "In-flight round; pass `None` when no round is open."
+          ],
+          "writable": true,
+          "optional": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  111,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery"
+              },
+              {
+                "kind": "account",
+                "path": "lottery.current_round_index",
+                "account": "Lottery"
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "global_config"
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "fulfill_resolution",
+      "discriminator": [
+        255,
+        125,
+        228,
+        148,
+        106,
+        60,
+        91,
+        212
+      ],
+      "accounts": [
+        {
+          "name": "global_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "vrf_request",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  114,
+                  102
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "vrf_request.round",
+                "account": "VrfRequest"
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "global_config"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "randomness",
+          "type": {
+            "array": [
+              "u8",
+              64
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "initialize_global",
+      "discriminator": [
+        47,
+        225,
+        15,
+        112,
+        86,
+        51,
+        190,
+        231
+      ],
+      "accounts": [
+        {
+          "name": "global_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "vrf_program",
+          "type": "pubkey"
+        },
+        {
+          "name": "vrf_treasury",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "open_round",
+      "discriminator": [
+        66,
+        235,
+        123,
+        240,
+        8,
+        35,
+        185,
+        159
+      ],
+      "accounts": [
+        {
+          "name": "global_config"
+        },
+        {
+          "name": "lottery",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  111,
+                  116,
+                  116,
+                  101,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery.id",
+                "account": "Lottery"
+              }
+            ]
+          }
+        },
+        {
+          "name": "previous_round",
+          "docs": [
+            "The previous round (must be Resolved) — required when `round_index > 1`.",
+            "Pass `None` only for round 1."
+          ],
+          "optional": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  111,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery"
+              },
+              {
+                "kind": "arg",
+                "path": "round_index.checked_sub(1).unwrap_or(0)"
+              }
+            ]
+          }
+        },
+        {
+          "name": "round",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  111,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery"
+              },
+              {
+                "kind": "arg",
+                "path": "round_index"
+              }
+            ]
+          }
+        },
+        {
+          "name": "shard_zero",
+          "docs": [
+            "Header-only allocation; grows via `realloc` on each `buy_tickets`."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  104,
+                  97,
+                  114,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "round"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "round_index",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "pause_lottery",
+      "discriminator": [
+        178,
+        234,
+        69,
+        222,
+        135,
+        30,
+        243,
+        172
+      ],
+      "accounts": [
+        {
+          "name": "global_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "lottery",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  111,
+                  116,
+                  116,
+                  101,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery.id",
+                "account": "Lottery"
+              }
+            ]
+          }
+        },
+        {
+          "name": "round",
+          "docs": [
+            "In-flight round; pass `None` when no round is open."
+          ],
+          "writable": true,
+          "optional": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  111,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery"
+              },
+              {
+                "kind": "account",
+                "path": "lottery.current_round_index",
+                "account": "Lottery"
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "global_config"
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "propose_admin",
+      "discriminator": [
+        121,
+        214,
+        199,
+        212,
+        87,
+        39,
+        117,
+        234
+      ],
+      "accounts": [
+        {
+          "name": "global_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "global_config"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "new_admin",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "request_orao_resolution",
+      "docs": [
+        "Public resolution backed by ORAO VRF. Anyone may call this once the",
+        "round timer has elapsed (admin may call any time). It CPIs into the",
+        "ORAO program to request verifiable randomness — ORAO oracles fulfill",
+        "off-chain, then anyone calls `consume_orao_resolution` to draw."
+      ],
+      "discriminator": [
+        0,
+        178,
+        239,
+        161,
+        77,
+        171,
+        60,
+        76
+      ],
+      "accounts": [
+        {
+          "name": "global_config"
+        },
+        {
+          "name": "lottery",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  111,
+                  116,
+                  116,
+                  101,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery.id",
+                "account": "Lottery"
+              }
+            ]
+          }
+        },
+        {
+          "name": "round",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  111,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery"
+              },
+              {
+                "kind": "account",
+                "path": "round.index",
+                "account": "Round"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vrf_request",
+          "docs": [
+            "ORAO's randomness account, derived from the seed (= round pubkey)."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  111,
+                  45,
+                  118,
+                  114,
+                  102,
+                  45,
+                  114,
+                  97,
+                  110,
+                  100,
+                  111,
+                  109,
+                  110,
+                  101,
+                  115,
+                  115,
+                  45,
+                  114,
+                  101,
+                  113,
+                  117,
+                  101,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "round"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                7,
+                71,
+                177,
+                26,
+                250,
+                145,
+                180,
+                209,
+                249,
+                34,
+                242,
+                123,
+                14,
+                186,
+                193,
+                218,
+                178,
+                59,
+                33,
+                41,
+                164,
+                190,
+                243,
+                79,
+                50,
+                164,
+                123,
+                88,
+                245,
+                206,
+                252,
+                120
+              ]
+            }
+          }
+        },
+        {
+          "name": "vrf_treasury",
+          "writable": true
+        },
+        {
+          "name": "vrf_network_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  97,
+                  111,
+                  45,
+                  118,
+                  114,
+                  102,
+                  45,
+                  110,
+                  101,
+                  116,
+                  119,
+                  111,
+                  114,
+                  107,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103,
+                  117,
+                  114,
+                  97,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                7,
+                71,
+                177,
+                26,
+                250,
+                145,
+                180,
+                209,
+                249,
+                34,
+                242,
+                123,
+                14,
+                186,
+                193,
+                218,
+                178,
+                59,
+                33,
+                41,
+                164,
+                190,
+                243,
+                79,
+                50,
+                164,
+                123,
+                88,
+                245,
+                206,
+                252,
+                120
+              ]
+            }
+          }
+        },
+        {
+          "name": "vrf_program",
+          "address": "VRFzZoJdhFWL8rkvu87LpKM3RbcVezpMEc6X5GVDr7y"
+        },
+        {
+          "name": "caller",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "request_resolution",
+      "discriminator": [
+        200,
+        62,
+        148,
+        110,
+        22,
+        92,
+        78,
+        187
+      ],
+      "accounts": [
+        {
+          "name": "global_config"
+        },
+        {
+          "name": "lottery",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  111,
+                  116,
+                  116,
+                  101,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery.id",
+                "account": "Lottery"
+              }
+            ]
+          }
+        },
+        {
+          "name": "round",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  111,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery"
+              },
+              {
+                "kind": "account",
+                "path": "round.index",
+                "account": "Round"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vrf_request",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  114,
+                  102
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "round"
+              }
+            ]
+          }
+        },
+        {
+          "name": "caller",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "resolve_empty_round",
+      "discriminator": [
+        133,
+        14,
+        75,
+        54,
+        181,
+        98,
+        72,
+        227
+      ],
+      "accounts": [
+        {
+          "name": "global_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "lottery",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  111,
+                  116,
+                  116,
+                  101,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery.id",
+                "account": "Lottery"
+              }
+            ]
+          }
+        },
+        {
+          "name": "round",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  111,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery"
+              },
+              {
+                "kind": "account",
+                "path": "round.index",
+                "account": "Round"
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "global_config"
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "resolve_round",
+      "docs": [
+        "Admin-driven resolution. Admin supplies a 32-byte seed; the program",
+        "derives the winner and distributes splits."
+      ],
+      "discriminator": [
+        165,
+        114,
+        237,
+        158,
+        1,
+        36,
+        70,
+        254
+      ],
+      "accounts": [
+        {
+          "name": "global_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "lottery",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  111,
+                  116,
+                  116,
+                  101,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery.id",
+                "account": "Lottery"
+              }
+            ]
+          }
+        },
+        {
+          "name": "round",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  111,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery"
+              },
+              {
+                "kind": "account",
+                "path": "round.index",
+                "account": "Round"
+              }
+            ]
+          }
+        },
+        {
+          "name": "winner_shard",
+          "docs": [
+            "Shard containing the winning ticket. Its `shard_index` must match",
+            "what we derive from the seed; otherwise the resolve aborts."
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  104,
+                  97,
+                  114,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "round"
+              },
+              {
+                "kind": "account",
+                "path": "winner_shard.shard_index",
+                "account": "TicketShard"
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "global_config"
+          ]
+        },
+        {
+          "name": "next_round",
+          "docs": [
+            "Optional rollover target — the next Round PDA. Pass alongside",
+            "`next_shard` and `system_program` to atomically open round N+1."
+          ],
+          "writable": true,
+          "optional": true
+        },
+        {
+          "name": "next_shard",
+          "docs": [
+            "Optional rollover target — shard 0 for the next round."
+          ],
+          "writable": true,
+          "optional": true
+        },
+        {
+          "name": "system_program",
+          "optional": true,
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "seed",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "resume_lottery",
+      "discriminator": [
+        182,
+        218,
+        255,
+        185,
+        203,
+        8,
+        20,
+        138
+      ],
+      "accounts": [
+        {
+          "name": "global_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "lottery",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  111,
+                  116,
+                  116,
+                  101,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery.id",
+                "account": "Lottery"
+              }
+            ]
+          }
+        },
+        {
+          "name": "round",
+          "docs": [
+            "In-flight round; pass `None` when no round is open."
+          ],
+          "writable": true,
+          "optional": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  111,
+                  117,
+                  110,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery"
+              },
+              {
+                "kind": "account",
+                "path": "lottery.current_round_index",
+                "account": "Lottery"
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "global_config"
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "update_lottery_duration",
+      "discriminator": [
+        227,
+        112,
+        142,
+        137,
+        169,
+        218,
+        213,
+        60
+      ],
+      "accounts": [
+        {
+          "name": "global_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "lottery",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  111,
+                  116,
+                  116,
+                  101,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery.id",
+                "account": "Lottery"
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "global_config"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "new_duration_seconds",
+          "type": "i64"
+        }
+      ]
+    },
+    {
+      "name": "update_lottery_price",
+      "discriminator": [
+        220,
+        158,
+        97,
+        103,
+        194,
+        140,
+        167,
+        107
+      ],
+      "accounts": [
+        {
+          "name": "global_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "lottery",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  111,
+                  116,
+                  116,
+                  101,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery.id",
+                "account": "Lottery"
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "global_config"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "new_price",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "update_lottery_splits",
+      "discriminator": [
+        35,
+        10,
+        225,
+        2,
+        172,
+        180,
+        179,
+        50
+      ],
+      "accounts": [
+        {
+          "name": "global_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "lottery",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  111,
+                  116,
+                  116,
+                  101,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lottery.id",
+                "account": "Lottery"
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "global_config"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "new_splits",
+          "type": {
+            "vec": {
+              "defined": {
+                "name": "Split"
+              }
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "GlobalConfig",
+      "discriminator": [
+        149,
+        8,
+        156,
+        202,
+        160,
+        252,
+        176,
+        217
+      ]
+    },
+    {
+      "name": "Lottery",
+      "discriminator": [
+        162,
+        182,
+        26,
+        12,
+        164,
+        214,
+        112,
+        3
+      ]
+    },
+    {
+      "name": "NetworkState",
+      "discriminator": [
+        212,
+        237,
+        148,
+        56,
+        97,
+        245,
+        51,
+        169
+      ]
+    },
+    {
+      "name": "Round",
+      "discriminator": [
+        87,
+        127,
+        165,
+        51,
+        73,
+        78,
+        116,
+        174
+      ]
+    },
+    {
+      "name": "TicketShard",
+      "discriminator": [
+        97,
+        3,
+        68,
+        55,
+        47,
+        210,
+        241,
+        129
+      ]
+    },
+    {
+      "name": "VrfRequest",
+      "discriminator": [
+        153,
+        180,
+        194,
+        105,
+        91,
+        34,
+        95,
+        113
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "AdminTransferAccepted",
+      "discriminator": [
+        79,
+        229,
+        204,
+        202,
+        134,
+        43,
+        177,
+        26
+      ]
+    },
+    {
+      "name": "AdminTransferProposed",
+      "discriminator": [
+        203,
+        168,
+        175,
+        51,
+        239,
+        104,
+        20,
+        85
+      ]
+    },
+    {
+      "name": "DonationReceived",
+      "discriminator": [
+        160,
+        135,
+        32,
+        7,
+        241,
+        105,
+        91,
+        158
+      ]
+    },
+    {
+      "name": "LotteryConfigUpdated",
+      "discriminator": [
+        237,
+        50,
+        147,
+        153,
+        78,
+        255,
+        61,
+        128
+      ]
+    },
+    {
+      "name": "LotteryCreated",
+      "discriminator": [
+        162,
+        18,
+        70,
+        148,
+        241,
+        124,
+        57,
+        74
+      ]
+    },
+    {
+      "name": "LotteryStateChanged",
+      "discriminator": [
+        116,
+        62,
+        184,
+        135,
+        124,
+        90,
+        153,
+        26
+      ]
+    },
+    {
+      "name": "ResolutionRequested",
+      "discriminator": [
+        207,
+        202,
+        117,
+        88,
+        217,
+        92,
+        241,
+        12
+      ]
+    },
+    {
+      "name": "RoundOpened",
+      "discriminator": [
+        99,
+        173,
+        228,
+        72,
+        142,
+        57,
+        109,
+        178
+      ]
+    },
+    {
+      "name": "RoundResolved",
+      "discriminator": [
+        204,
+        146,
+        253,
+        187,
+        8,
+        61,
+        75,
+        29
+      ]
+    },
+    {
+      "name": "ShardClosed",
+      "discriminator": [
+        181,
+        79,
+        79,
+        41,
+        139,
+        177,
+        154,
+        14
+      ]
+    },
+    {
+      "name": "TicketBought",
+      "discriminator": [
+        80,
+        244,
+        35,
+        181,
+        211,
+        143,
+        3,
+        166
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "SplitsCountOutOfRange",
+      "msg": "Splits must contain between 1 and 8 entries."
+    },
+    {
+      "code": 6001,
+      "name": "SplitsMustSumTo100Percent",
+      "msg": "Splits must sum to exactly 10000 basis points (100%)."
+    },
+    {
+      "code": 6002,
+      "name": "BpsNotMultipleOf100",
+      "msg": "Each split bps must be a multiple of 100 (1% increments)."
+    },
+    {
+      "code": 6003,
+      "name": "MissingPoolSplitForSolPrize",
+      "msg": "Sol-prize lotteries must have exactly one split marked is_pool=true."
+    },
+    {
+      "code": 6004,
+      "name": "UnexpectedPoolSplitForPhysicalPrize",
+      "msg": "Physical-prize lotteries must not have any is_pool=true split."
+    },
+    {
+      "code": 6005,
+      "name": "NameTooLong",
+      "msg": "Lottery name exceeds 32 bytes."
+    },
+    {
+      "code": 6006,
+      "name": "LabelTooLong",
+      "msg": "Split label exceeds 16 bytes."
+    },
+    {
+      "code": 6007,
+      "name": "DurationMustBePositive",
+      "msg": "Round duration must be greater than zero."
+    },
+    {
+      "code": 6008,
+      "name": "PriceMustBePositive",
+      "msg": "Ticket price must be greater than zero."
+    },
+    {
+      "code": 6009,
+      "name": "LotteryNotActive",
+      "msg": "Lottery is not in Active state."
+    },
+    {
+      "code": 6010,
+      "name": "LotteryNotPendingDisable",
+      "msg": "Lottery is not in PendingDisable state."
+    },
+    {
+      "code": 6011,
+      "name": "LotteryNotDisabled",
+      "msg": "Lottery is not in Disabled state."
+    },
+    {
+      "code": 6012,
+      "name": "PauseRequiresActive",
+      "msg": "Cannot pause: lottery is not Active."
+    },
+    {
+      "code": 6013,
+      "name": "ResumeRequiresPaused",
+      "msg": "Cannot resume: lottery is not Paused."
+    },
+    {
+      "code": 6014,
+      "name": "OpenRoundPreventsClose",
+      "msg": "Cannot close lottery: an open or unresolved round exists."
+    },
+    {
+      "code": 6015,
+      "name": "RoundNotOpen",
+      "msg": "Round is not Open."
+    },
+    {
+      "code": 6016,
+      "name": "RoundNotClosed",
+      "msg": "Round is not Closed; cannot request resolution yet."
+    },
+    {
+      "code": 6017,
+      "name": "RoundNotResolved",
+      "msg": "Round is not Resolved."
+    },
+    {
+      "code": 6018,
+      "name": "RoundAlreadyResolved",
+      "msg": "Round is already resolved."
+    },
+    {
+      "code": 6019,
+      "name": "RoundStillRunning",
+      "msg": "Round duration has not elapsed; only admin can force-resolve early."
+    },
+    {
+      "code": 6020,
+      "name": "RoundExpired",
+      "msg": "Round duration has elapsed; ticket sales closed."
+    },
+    {
+      "code": 6021,
+      "name": "LotteryPaused",
+      "msg": "Lottery is paused; ticket sales suspended."
+    },
+    {
+      "code": 6022,
+      "name": "RoundAlreadyOpen",
+      "msg": "Round is already in flight; cannot open a new one."
+    },
+    {
+      "code": 6023,
+      "name": "RoundHasNoTickets",
+      "msg": "Round has zero tickets; nothing to draw."
+    },
+    {
+      "code": 6024,
+      "name": "PreviousRoundNotResolved",
+      "msg": "Auto-rollover requires the previous round to be passed and Resolved."
+    },
+    {
+      "code": 6025,
+      "name": "TicketShardFull",
+      "msg": "Ticket shard is full; allocate the next shard."
+    },
+    {
+      "code": 6026,
+      "name": "TicketShardNotFull",
+      "msg": "Cannot allocate the next shard until the current one is full."
+    },
+    {
+      "code": 6027,
+      "name": "WrongTicketShard",
+      "msg": "Wrong ticket shard supplied for current state."
+    },
+    {
+      "code": 6028,
+      "name": "QuantityZero",
+      "msg": "Quantity must be greater than zero."
+    },
+    {
+      "code": 6029,
+      "name": "QuantityTooLarge",
+      "msg": "Quantity exceeds the per-call cap (320). Split the purchase across multiple calls."
+    },
+    {
+      "code": 6030,
+      "name": "InsufficientFunds",
+      "msg": "Insufficient funds to purchase that many tickets."
+    },
+    {
+      "code": 6031,
+      "name": "Unauthorized",
+      "msg": "Caller is not the admin."
+    },
+    {
+      "code": 6032,
+      "name": "NoPendingAdmin",
+      "msg": "No pending admin to accept."
+    },
+    {
+      "code": 6033,
+      "name": "NotPendingAdmin",
+      "msg": "Caller is not the pending admin."
+    },
+    {
+      "code": 6034,
+      "name": "VrfNotFulfilled",
+      "msg": "VRF request not yet fulfilled."
+    },
+    {
+      "code": 6035,
+      "name": "VrfAlreadyRequested",
+      "msg": "VRF request already in flight."
+    },
+    {
+      "code": 6036,
+      "name": "WrongSplitDestination",
+      "msg": "Wrong destination pubkey for split at this index."
+    },
+    {
+      "code": 6037,
+      "name": "DonationRequiresPoolSplit",
+      "msg": "Donations require a lottery with a pool split (Sol prize kind)."
+    },
+    {
+      "code": 6038,
+      "name": "DonationRoundNotAcceptingFunds",
+      "msg": "Donations are only accepted while the round is Open or Closed."
+    },
+    {
+      "code": 6039,
+      "name": "MathOverflow",
+      "msg": "Arithmetic overflow."
+    }
+  ],
+  "types": [
+    {
+      "name": "AdminTransferAccepted",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "previous_admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "new_admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "at",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "AdminTransferProposed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "current_admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "pending_admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "at",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DonationReceived",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "round",
+            "type": "pubkey"
+          },
+          {
+            "name": "donor",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount_lamports",
+            "type": "u64"
+          },
+          {
+            "name": "running_total_lamports",
+            "docs": [
+              "Cumulative donations for this round after this event."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "at",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "GlobalConfig",
+      "docs": [
+        "Singleton account holding the program's admin authority and VRF wiring.",
+        "",
+        "**PDA seeds:** `[b\"config\"]`",
+        "**Created by:** `initialize_global` (once per deployment).",
+        "**Rent payer:** the deployer (becomes the initial admin)."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "docs": [
+              "The wallet authorized to administer every lottery (create, pause,",
+              "disable, etc.). Single-sig today; we assume the user controls it via",
+              "a hardware wallet or multisig at the wallet layer."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "pending_admin",
+            "docs": [
+              "Two-step admin handover: when the current admin proposes a new admin,",
+              "it lands here. The new admin must call `accept_admin` to take over.",
+              "`None` means no transfer in flight."
+            ],
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "vrf_program",
+            "docs": [
+              "ORAO VRF program id. Varies between localnet/devnet/mainnet, so we",
+              "store it on-chain rather than hardcoding it."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "vrf_treasury",
+            "docs": [
+              "ORAO treasury account used to pay fulfillment fees."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "next_lottery_id",
+            "docs": [
+              "Monotonically increasing counter; the next created Lottery uses this",
+              "as its `id` (and as a seed for its PDA)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "PDA bump for `[b\"config\"]`. Stored to avoid recomputing on every CPI."
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Lottery",
+      "docs": [
+        "A configurable lottery. One Lottery has at most one active Round at a time.",
+        "",
+        "**PDA seeds:** `[b\"lottery\", id.to_le_bytes()]`",
+        "**Created by:** `create_lottery` (admin).",
+        "**Rent payer:** admin. Reclaimed on `close_lottery` once Disabled."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "id",
+            "docs": [
+              "Stable id, assigned from `GlobalConfig.next_lottery_id`. Used as a",
+              "PDA seed so we don't need a global lookup table."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "name",
+            "docs": [
+              "Human label, ASCII, zero-padded."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "state",
+            "type": {
+              "defined": {
+                "name": "LotteryState"
+              }
+            }
+          },
+          {
+            "name": "prize_kind",
+            "type": {
+              "defined": {
+                "name": "PrizeKind"
+              }
+            }
+          },
+          {
+            "name": "ticket_price_lamports",
+            "docs": [
+              "Price per ticket. Editable any time; the change applies to the NEXT",
+              "round only (each Round snapshots its price on open)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "round_duration_seconds",
+            "docs": [
+              "Round duration in seconds (e.g. 86_400 for 24h). Same edit semantics."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "auto_rollover",
+            "docs": [
+              "If true, `resolve_round` immediately opens round N+1."
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "splits",
+            "docs": [
+              "Revenue splits for new rounds. Edited via `update_splits`. The current",
+              "round's snapshot is what governs payouts for that round."
+            ],
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "Split"
+                }
+              }
+            }
+          },
+          {
+            "name": "current_round_index",
+            "docs": [
+              "`0` until the first `open_round`; thereafter the index of the",
+              "most-recently-opened round."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "total_rounds_resolved",
+            "docs": [
+              "Lifetime counter incremented in `resolve_round`."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "total_tickets_sold",
+            "docs": [
+              "Lifetime counter incremented on every successful `buy_tickets`."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "LotteryConfigUpdated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lottery",
+            "type": "pubkey"
+          },
+          {
+            "name": "field",
+            "docs": [
+              "ASCII tag for which field changed: \"price\", \"duration\", \"splits\"."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                16
+              ]
+            }
+          },
+          {
+            "name": "at",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "LotteryCreated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lottery",
+            "type": "pubkey"
+          },
+          {
+            "name": "id",
+            "type": "u64"
+          },
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "name",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "LotteryState",
+      "docs": [
+        "Lifecycle of a lottery configuration.",
+        "",
+        "```text",
+        "Active  <->  Paused",
+        "\\         /",
+        "v       v",
+        "PendingDisable  --(current round resolves)-->  Disabled",
+        "```",
+        "",
+        "* **Active**: rounds can run, tickets sell.",
+        "* **Paused**: no sales; the in-flight round's timer freezes.",
+        "* **PendingDisable**: in-flight round will finish; no new round opens after.",
+        "* **Disabled**: terminal. The Lottery PDA may be closed by the admin to",
+        "reclaim rent."
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Active"
+          },
+          {
+            "name": "Paused"
+          },
+          {
+            "name": "PendingDisable"
+          },
+          {
+            "name": "Disabled"
+          }
+        ]
+      }
+    },
+    {
+      "name": "LotteryStateChanged",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lottery",
+            "type": "pubkey"
+          },
+          {
+            "name": "previous_state",
+            "type": "u8"
+          },
+          {
+            "name": "new_state",
+            "type": "u8"
+          },
+          {
+            "name": "at",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "NetworkConfiguration",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "treasury",
+            "type": "pubkey"
+          },
+          {
+            "name": "request_fee",
+            "type": "u64"
+          },
+          {
+            "name": "fulfillment_authorities",
+            "type": {
+              "vec": "pubkey"
+            }
+          },
+          {
+            "name": "token_fee_config",
+            "type": {
+              "option": {
+                "defined": {
+                  "name": "OraoTokenFeeConfig"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "NetworkState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "config",
+            "type": {
+              "defined": {
+                "name": "NetworkConfiguration"
+              }
+            }
+          },
+          {
+            "name": "num_received",
+            "docs": [
+              "Total number of received requests."
+            ],
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OraoTokenFeeConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "mint",
+            "docs": [
+              "ORAO token mint address."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "treasury",
+            "docs": [
+              "ORAO token treasury account."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "fee",
+            "docs": [
+              "Fee in ORAO SPL token smallest units."
+            ],
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PrizeKind",
+      "docs": [
+        "What kind of prize a lottery awards.",
+        "",
+        "* **Sol** — winner is paid SOL out of the round's pool split.",
+        "* **Physical** — off-chain prize delivery. The contract still picks and",
+        "records a winner pubkey, but pays them no SOL. The full ticket revenue",
+        "is split among the configured (non-pool) destinations."
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Sol"
+          },
+          {
+            "name": "Physical"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ResolutionRequested",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "round",
+            "type": "pubkey"
+          },
+          {
+            "name": "vrf_request",
+            "type": "pubkey"
+          },
+          {
+            "name": "by",
+            "type": "pubkey"
+          },
+          {
+            "name": "at",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Round",
+      "docs": [
+        "One in-flight or historical lottery round.",
+        "",
+        "**PDA seeds:** `[b\"round\", lottery.key(), index.to_le_bytes()]`",
+        "**Created by:** `open_round`.",
+        "**Rent payer:** the caller of `open_round` (admin always for round 1;",
+        "admin or anyone with `auto_rollover` enabled for subsequent rounds).",
+        "",
+        "The Round PDA also holds the SOL escrow for ticket sales:",
+        "`buy_tickets` `system::transfer`s lamports onto this account; on resolve",
+        "the program drains them back out via direct lamport mutation (allowed",
+        "because the program owns the Round account). The rent-exempt minimum is",
+        "preserved across all transitions."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lottery",
+            "docs": [
+              "The Lottery this round belongs to."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "index",
+            "docs": [
+              "1-based index within its Lottery."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "state",
+            "type": {
+              "defined": {
+                "name": "RoundState"
+              }
+            }
+          },
+          {
+            "name": "started_at",
+            "docs": [
+              "Unix seconds at which `open_round` ran."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "duration_seconds",
+            "docs": [
+              "Snapshot of `Lottery.round_duration_seconds` at open time."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "ticket_price_lamports",
+            "docs": [
+              "Snapshot of `Lottery.ticket_price_lamports` at open time."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "splits",
+            "docs": [
+              "Snapshot of `Lottery.splits` at open time. Frozen for the life of the",
+              "round so mid-round config edits never affect existing buyers."
+            ],
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "Split"
+                }
+              }
+            }
+          },
+          {
+            "name": "paused_at",
+            "docs": [
+              "`Some(timestamp)` while the round is paused; `None` otherwise."
+            ],
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "paused_total_seconds",
+            "docs": [
+              "Total seconds the round has been paused for, accumulated across",
+              "pause/resume cycles. Used to extend `effective_end`."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "tickets_sold",
+            "docs": [
+              "Lifetime ticket count for this round."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "donated_lamports",
+            "docs": [
+              "Cumulative SOL donated to this round's prize pool via `donate_to_round`.",
+              "Added on top of the `is_pool` split's share at resolve."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "current_shard",
+            "docs": [
+              "Index of the active TicketShard PDA receiving new ticket writes.",
+              "Advanced by `allocate_shard` when the previous shard fills."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "max_shard",
+            "docs": [
+              "Highest shard index ever allocated for this round (== `current_shard`",
+              "when no rollover has happened, otherwise greater). Used by",
+              "`close_shard` to know how many shards exist after resolve."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "winner",
+            "docs": [
+              "Set on resolution. `None` for empty rounds (zero tickets)."
+            ],
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "vrf_request",
+            "docs": [
+              "VRF request PDA while in `AwaitingVrf`; cleared after resolve."
+            ],
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RoundOpened",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lottery",
+            "type": "pubkey"
+          },
+          {
+            "name": "round",
+            "type": "pubkey"
+          },
+          {
+            "name": "index",
+            "type": "u64"
+          },
+          {
+            "name": "started_at",
+            "type": "i64"
+          },
+          {
+            "name": "effective_end",
+            "type": "i64"
+          },
+          {
+            "name": "ticket_price_lamports",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RoundResolved",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lottery",
+            "type": "pubkey"
+          },
+          {
+            "name": "round",
+            "type": "pubkey"
+          },
+          {
+            "name": "winner",
+            "docs": [
+              "`None` for empty rounds (zero tickets)."
+            ],
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "winning_ticket_index",
+            "docs": [
+              "`None` for empty rounds."
+            ],
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "pool_amount_lamports",
+            "docs": [
+              "Lamports paid to the winner (0 if no pool split or empty round)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "total_distributed_lamports",
+            "docs": [
+              "Sum of every transfer made by `resolve_round`."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "at",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RoundState",
+      "docs": [
+        "Round-level lifecycle.",
+        "",
+        "```text",
+        "Open  --(timer expires OR admin force)--> Closed",
+        "Closed --(request_resolution)--> AwaitingVrf",
+        "AwaitingVrf --(consume_resolution)--> Resolved",
+        "```",
+        "`Resolved` is terminal. There is no cancel/refund path: ticket sales",
+        "are non-refundable by design."
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Open"
+          },
+          {
+            "name": "Closed"
+          },
+          {
+            "name": "AwaitingVrf"
+          },
+          {
+            "name": "Resolved"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ShardClosed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "round",
+            "type": "pubkey"
+          },
+          {
+            "name": "shard_index",
+            "type": "u32"
+          },
+          {
+            "name": "rent_returned_to",
+            "type": "pubkey"
+          },
+          {
+            "name": "at",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Split",
+      "docs": [
+        "One slice of ticket-sale revenue.",
+        "",
+        "Per-collection rules (validated on `create_lottery` / `update_splits`):",
+        "* 1 ≤ `splits.len()` ≤ 8.",
+        "* `sum(bps) == 10_000`  (100.00%).",
+        "* Each `bps` is a multiple of 100 (1% increments only).",
+        "* `PrizeKind::Sol` ⇒ exactly one Split has `is_pool == true`.",
+        "* `PrizeKind::Physical` ⇒ no Split has `is_pool == true`."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "label",
+            "docs": [
+              "Human label, ASCII, zero-padded. Used by UIs; not interpreted on-chain."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                16
+              ]
+            }
+          },
+          {
+            "name": "destination",
+            "docs": [
+              "Destination wallet for this slice. Ignored for `is_pool` splits — the",
+              "pool is paid to the round's winner (computed at resolve time)."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "bps",
+            "docs": [
+              "Basis points of the round's gross sales. `100 bps == 1%`.",
+              "Constrained to multiples of 100."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "is_pool",
+            "docs": [
+              "Marks the prize-pool slice. At most one per Lottery."
+            ],
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TicketBought",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "round",
+            "type": "pubkey"
+          },
+          {
+            "name": "buyer",
+            "type": "pubkey"
+          },
+          {
+            "name": "quantity",
+            "type": "u64"
+          },
+          {
+            "name": "total_paid_lamports",
+            "type": "u64"
+          },
+          {
+            "name": "running_total",
+            "docs": [
+              "Cumulative ticket count for the round after this purchase."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "at",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TicketShard",
+      "docs": [
+        "One page of the round's ticket book.",
+        "",
+        "We shard tickets across multiple PDAs because:",
+        "1. Solana account allocation is bounded per instruction.",
+        "2. Capping shard size simplifies error recovery and reasoning about gas.",
+        "",
+        "**PDA seeds:** `[b\"shard\", round.key(), shard_index.to_le_bytes()]`",
+        "**Created by:** the first `buy_tickets` that needs a fresh shard.",
+        "**Rent payer:** that buyer.",
+        "",
+        "Drawing math:",
+        "`winner_index = randomness % round.tickets_sold`",
+        "`shard_index  = winner_index / CAPACITY`",
+        "`offset       = winner_index % CAPACITY`",
+        "→ read `shard_index`'s `buyers[offset]`."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "round",
+            "docs": [
+              "The round this shard belongs to."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "shard_index",
+            "docs": [
+              "0-based index of this shard within the round."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "len",
+            "docs": [
+              "Number of tickets currently stored. Always ≤ `CAPACITY`."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "buyers",
+            "docs": [
+              "Buyers, indexed by ticket number within the shard. Pre-allocated to",
+              "`CAPACITY` so individual buys never have to realloc."
+            ],
+            "type": {
+              "vec": "pubkey"
+            }
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "VrfRequest",
+      "docs": [
+        "One VRF request bridging `request_resolution` to `vrf_callback`.",
+        "",
+        "The request lifecycle:",
+        "1. `request_resolution` creates this PDA, sets `seed`, leaves",
+        "`fulfilled = false`.",
+        "2. ORAO's fulfillment quorum invokes `vrf_callback` (signed by ORAO's",
+        "callback authority); we write the 64-byte randomness and flip",
+        "`fulfilled = true`.",
+        "3. The same callback (or `force_resolve` after a timeout) reads",
+        "`randomness` and resolves the round.",
+        "",
+        "**PDA seeds:** `[b\"vrf\", round.key()]`",
+        "**Created by:** `request_resolution`.",
+        "**Rent payer:** the resolver (admin or cron caller)."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "round",
+            "docs": [
+              "The round this request fulfills."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "seed",
+            "docs": [
+              "Seed sent to ORAO. Must be unique per request to avoid collisions",
+              "(we use the round's pubkey + slot at request time)."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "fulfilled",
+            "docs": [
+              "Set to true once `vrf_callback` writes the randomness."
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "randomness",
+            "docs": [
+              "64-byte VRF output. Only the first 8 bytes are used to derive the",
+              "winner index; the rest is stored for auditability."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                64
+              ]
+            }
+          },
+          {
+            "name": "requested_at",
+            "docs": [
+              "Unix-seconds time of the request, used by `force_resolve` to enforce",
+              "the 1-hour timeout."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    }
+  ]
+}

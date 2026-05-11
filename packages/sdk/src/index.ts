@@ -23,11 +23,16 @@ export interface AnchorReadyWallet {
   ): Promise<T[]>;
 }
 
-import lotteryIdl from '../../../target/idl/lottery.json';
-import type { Lottery } from '../../../target/types/lottery';
+// IDL + types are vendored into this package (see scripts/sync-idl.sh)
+// because `target/` is gitignored — Vercel and other build hosts don't
+// have the Anchor toolchain to regenerate them. Re-run the sync script
+// after every `anchor build` if the on-chain program changes.
+import lotteryIdl from './idl/lottery.json';
+import type { Lottery } from './idl/lottery';
 
+export { lotteryIdl };
 export type LotteryProgram = Program<Lottery>;
-export type { Lottery } from '../../../target/types/lottery';
+export type { Lottery } from './idl/lottery';
 
 /** The program id baked into the IDL by `anchor build`. */
 export const PROGRAM_ID = new PublicKey((lotteryIdl as { address: string }).address);

@@ -14,6 +14,7 @@ import { Connection, PublicKey } from '@solana/web3.js';
 import {
   PROGRAM_ID,
   createProgram,
+  lotteryIdl,
   unpackAsciiBytes,
 } from '@sol-lottery/sdk';
 import {
@@ -22,7 +23,6 @@ import {
   RoundState,
   prisma,
 } from '@sol-lottery/db';
-import lotteryIdl from '../../../target/idl/lottery.json';
 
 const RPC_URL = process.env.SOLANA_RPC_URL ?? 'https://api.devnet.solana.com';
 const programId = process.env.LOTTERY_PROGRAM_ID

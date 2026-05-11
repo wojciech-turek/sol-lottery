@@ -11,7 +11,8 @@
   "scripts": {
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
-    "build": "echo \"@sol-lottery/sdk is consumed as TS source\""
+    "build": "echo \"@sol-lottery/sdk is consumed as TS source\"",
+    "sync-idl": "cp ../../target/idl/lottery.json src/idl/lottery.json && cp ../../target/types/lottery.ts src/idl/lottery.ts"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.32.1",
