@@ -1,9 +1,11 @@
+import { Info } from 'lucide-react';
+
 import { lamportsToSol } from '@/lib/format';
 
 interface Props {
   ticketPriceLamports: bigint;
   durationSeconds: bigint;
-  poolBps: number; // e.g. 9500 → 95%
+  poolBps: number;
 }
 
 export function HowItWorksCard({
@@ -15,11 +17,14 @@ export function HowItWorksCard({
   const durationLabel = formatDuration(Number(durationSeconds));
   const winnerPct = (poolBps / 100).toFixed(0);
   return (
-    <div className="rounded-lg border border-white/5 bg-zinc-900/50 p-4">
-      <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 mb-3">
-        How it works
+    <div className="glass rounded-lg p-2 md:p-3 h-full">
+      <div className="flex items-center gap-1.5 mb-1.5 md:mb-2">
+        <Info className="w-3 h-3 text-muted-foreground" />
+        <p className="text-muted-foreground text-[10px] uppercase tracking-wider">
+          How it works
+        </p>
       </div>
-      <ul className="text-xs text-zinc-300 grid gap-1.5">
+      <ul className="text-foreground text-[10px] md:text-xs space-y-0.5 md:space-y-1">
         <li>• {priceSol.toFixed(2)} SOL per ticket</li>
         <li>• Pool grows with each ticket</li>
         <li>• Draw every {durationLabel}</li>

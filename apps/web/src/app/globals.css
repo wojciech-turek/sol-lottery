@@ -1,26 +1,143 @@
 @import "tailwindcss";
 
+/* People's Pot — trust-first dark gold design system. Ported from the
+   reference mockup at ~/Projects/sol-lottery-mockup. HSL components are
+   stored as space-separated triplets so they can be composed with
+   `hsl(var(--token) / <alpha>)` for opacity variants. */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: 220 20% 8%;
+  --foreground: 45 10% 90%;
+
+  --card: 220 18% 12%;
+  --card-foreground: 45 10% 90%;
+
+  --popover: 220 18% 14%;
+  --popover-foreground: 45 10% 90%;
+
+  --primary: 45 90% 55%;
+  --primary-foreground: 220 20% 8%;
+
+  --secondary: 220 15% 18%;
+  --secondary-foreground: 45 10% 85%;
+
+  --muted: 220 15% 16%;
+  --muted-foreground: 220 10% 55%;
+
+  --accent: 45 85% 50%;
+  --accent-foreground: 220 20% 8%;
+
+  --destructive: 0 65% 50%;
+  --destructive-foreground: 0 0% 100%;
+
+  --success: 145 60% 45%;
+  --success-foreground: 145 60% 95%;
+
+  --border: 220 15% 20%;
+  --input: 220 15% 18%;
+  --ring: 45 90% 55%;
+
+  --radius: 0.75rem;
+
+  --pot-glow: 45 100% 60%;
+  --pot-gradient-start: 45 95% 58%;
+  --pot-gradient-end: 35 90% 48%;
+
+  --glass: 220 18% 12% / 0.7;
+  --glass-border: 220 15% 25% / 0.5;
 }
 
+/* Tailwind v4: register tokens as design-system colors so utilities
+   like `bg-card`, `text-muted-foreground`, `border-border` resolve
+   against the variables above. */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-jetbrains-mono);
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: var(--font-inter), 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Hide scrollbars in scrollable card lists for a cleaner look while
+   keeping content reachable. */
+.scroll-thin::-webkit-scrollbar { width: 4px; }
+.scroll-thin::-webkit-scrollbar-track { background: transparent; }
+.scroll-thin::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 999px;
+}
+
+@utility pot-glow {
+  box-shadow:
+    0 0 60px hsl(var(--pot-glow) / 0.3),
+    0 0 120px hsl(var(--pot-glow) / 0.15),
+    inset 0 0 30px hsl(var(--pot-glow) / 0.1);
+}
+
+@utility pot-gradient {
+  background: linear-gradient(
+    135deg,
+    hsl(var(--pot-gradient-start)) 0%,
+    hsl(var(--pot-gradient-end)) 100%
+  );
+}
+
+@utility glass {
+  background: hsl(var(--glass));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid hsl(var(--glass-border));
+}
+
+@utility text-gradient-gold {
+  background: linear-gradient(
+    135deg,
+    hsl(45 95% 65%) 0%,
+    hsl(35 90% 55%) 50%,
+    hsl(45 95% 65%) 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+}
+
+@utility animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
 }

@@ -12,9 +12,10 @@
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.32.1",
-    "@solana/web3.js": "^1.95.4",
+    "@orao-network/solana-vrf": "^0.8.0",
     "@sol-lottery/db": "workspace:*",
     "@sol-lottery/sdk": "workspace:*",
+    "@solana/web3.js": "^1.95.4",
     "dotenv": "^16.4.7"
   },
   "devDependencies": {

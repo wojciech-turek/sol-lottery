@@ -1,24 +1,25 @@
-export function LiveChatPlaceholder() {
+import { MessageCircle } from 'lucide-react';
+
+export function LiveChatPlaceholder({ hideHeader }: { hideHeader?: boolean }) {
   return (
-    <div className="rounded-lg border border-white/5 bg-zinc-900/50 p-4 h-full flex flex-col">
-      <div className="flex items-center justify-between mb-4">
-        <span className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2">
-          <span className="w-3 h-3 rounded-full border border-zinc-500/40 inline-block" />
-          Live chat
-        </span>
-        <span className="w-2 h-2 rounded-full bg-emerald-400" />
-      </div>
-      <div className="flex-1 overflow-y-auto grid gap-3 text-sm">
-        <Message
-          author="Admin"
-          body="Integrated live chat coming soon!"
-        />
+    <div className="glass rounded-lg h-full flex flex-col overflow-hidden">
+      {!hideHeader && (
+        <div className="px-3 py-2 border-b border-border/50 flex items-center gap-1.5 shrink-0">
+          <MessageCircle className="w-3 h-3 text-muted-foreground" />
+          <span className="text-muted-foreground text-[10px] uppercase tracking-wider">
+            Live chat
+          </span>
+          <span className="ml-auto w-1.5 h-1.5 bg-success rounded-full animate-pulse" />
+        </div>
+      )}
+      <div className="flex-1 overflow-y-auto scroll-thin p-2 md:p-2 space-y-2 min-h-0">
+        <Message author="Admin" body="Integrated live chat coming soon!" />
         <Message
           author="Admin"
           body={
             <>
-              Check out our Telegram to engage with other users and get
-              notified at <span className="text-amber-400">@Example</span>
+              Hop into our Telegram to chat with other players —{' '}
+              <span className="text-primary">@Example</span>
             </>
           }
         />
@@ -27,13 +28,19 @@ export function LiveChatPlaceholder() {
   );
 }
 
-function Message({ author, body }: { author: string; body: React.ReactNode }) {
+function Message({
+  author,
+  body,
+}: {
+  author: string;
+  body: React.ReactNode;
+}) {
   return (
-    <div className="rounded-md bg-zinc-900 border border-white/5 p-3">
-      <div className="text-[10px] uppercase tracking-wider text-amber-400 mb-1">
+    <div className="rounded-lg bg-secondary/50 border border-border/50 px-3 py-2">
+      <div className="text-[9px] uppercase tracking-wider text-primary mb-0.5">
         {author}
       </div>
-      <div className="text-sm text-zinc-200">{body}</div>
+      <div className="text-xs text-foreground leading-relaxed">{body}</div>
     </div>
   );
 }

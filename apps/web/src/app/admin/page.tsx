@@ -38,7 +38,21 @@ const serializeRound = (r: CurrentRoundSnapshot) => ({
 
 export default async function AdminPage() {
   await requireAdmin();
-  const items = await fetchAllLotteries();
+  // Chain holds every lottery ever created on this program — including the
+  // dozens of leftover devnet test runs. The admin panel only cares about
+  // lotteries we've also indexed into Postgres, so the operator sees a
+  // clean list that matches the DB-wipe + create-from-scratch flow.
+  const knownPubkeys = new Set(
+    (await prisma.lottery.findMany({ select: { pubkey: true } })).map(
+      (r) => r.pubkey,
+    ),
+  );
+  const items =
+    knownPubkeys.size === 0
+      ? []
+      : (await fetchAllLotteries()).filter((i) =>
+          knownPubkeys.has(i.lottery.lottery.toBase58()),
+        );
   const lotteryPubkeys = items.map((i) => i.lottery.lottery.toBase58());
 
   const [resolvedAggBy, distinctPlayersByLottery, recentWinners, recentStateLogs] =

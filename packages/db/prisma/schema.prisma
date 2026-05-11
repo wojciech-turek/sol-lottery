@@ -26,6 +26,7 @@ model Lottery {
   ticketPriceLamports  BigInt                                 @map("ticket_price_lamports")
   durationSeconds      BigInt                                 @map("duration_seconds")
   autoRollover         Boolean        @default(false)         @map("auto_rollover")
+  manualResolution     Boolean        @default(false)         @map("manual_resolution")
   admin                String
   createdAt            DateTime                               @map("created_at")
   updatedAt            DateTime       @updatedAt              @map("updated_at")

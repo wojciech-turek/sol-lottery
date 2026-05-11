@@ -166,10 +166,13 @@ export async function fetchActiveLottery(): Promise<{
   round: CurrentRoundSnapshot;
 } | null> {
   const { prisma } = await import('@sol-lottery/db');
+  // Paused / pendingDisable still represent a "current" lottery from the
+  // user's perspective — only DISABLED (closed) lotteries should fall
+  // through to the empty state.
   const knownPubkeys = new Set(
     (
       await prisma.lottery.findMany({
-        where: { state: { in: ['ACTIVE', 'PENDING_DISABLE'] } },
+        where: { state: { in: ['ACTIVE', 'PAUSED', 'PENDING_DISABLE'] } },
         select: { pubkey: true },
       })
     ).map((r) => r.pubkey),
@@ -180,7 +183,7 @@ export async function fetchActiveLottery(): Promise<{
   const candidates = all.filter((entry) => {
     const state = enumKey((entry.account as any).state);
     return (
-      (state === 'active' || state === 'pendingDisable') &&
+      (state === 'active' || state === 'paused' || state === 'pendingDisable') &&
       (entry.account as any).currentRoundIndex.toNumber?.() > 0 &&
       knownPubkeys.has(entry.publicKey.toBase58())
     );

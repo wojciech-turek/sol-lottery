@@ -336,6 +336,7 @@ export function useAdminActions() {
       ticketPriceSol: number;
       prizeKind: 'sol' | 'physical';
       autoRollover: boolean;
+      manualResolution: boolean;
       splits: Array<{
         label: string;
         destination: string;
@@ -391,6 +392,24 @@ export function useAdminActions() {
             systemProgram: SystemProgram.programId,
           })
           .rpc();
+
+        // Persist the manualResolution preference. The indexer will pick up
+        // the LotteryCreated event and create the DB row; this PATCH waits
+        // briefly for that row to exist and then sets the flag.
+        setProgress('Saving lottery preferences…');
+        try {
+          await fetch('/api/admin/lottery/config', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              pubkey: newLottery.toBase58(),
+              manualResolution: input.manualResolution,
+            }),
+          });
+        } catch {
+          /* non-fatal — defaults to auto-resolution */
+        }
       }),
     [connection, wrap, wallet],
   );

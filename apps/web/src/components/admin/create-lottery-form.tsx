@@ -33,6 +33,7 @@ export function CreateLotteryForm() {
     }
   };
   const [autoRollover, setAutoRollover] = useState(true);
+  const [manualResolution, setManualResolution] = useState(false);
   const [splits, setSplits] = useState<SplitDraft[]>([
     {
       label: 'pool',
@@ -83,6 +84,7 @@ export function CreateLotteryForm() {
       ticketPriceSol,
       prizeKind,
       autoRollover,
+      manualResolution,
       splits,
     });
     if (actions.error == null) {
@@ -148,6 +150,24 @@ export function CreateLotteryForm() {
                 onChange={(e) => setAutoRollover(e.target.checked)}
               />
               Open the next round automatically on resolve
+            </label>
+          </Field>
+        </div>
+        <div>
+          <Field label="Resolution">
+            <label className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-zinc-900 border border-white/10 text-zinc-200 text-sm">
+              <input
+                type="checkbox"
+                checked={manualResolution}
+                onChange={(e) => setManualResolution(e.target.checked)}
+              />
+              <span>
+                Require manual resolution
+                <span className="block text-[10px] text-zinc-500 mt-0.5">
+                  Off (default): the indexer auto-resolves once the round ends.
+                  On: admin must click &quot;Resolve now&quot;.
+                </span>
+              </span>
             </label>
           </Field>
         </div>

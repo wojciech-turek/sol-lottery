@@ -298,6 +298,9 @@ async function main(): Promise<void> {
 
   console.log(`[indexer] subscribing to ${programId.toBase58()} via ${RPC_URL}`);
 
+  const { startResolver } = await import('./resolver');
+  startResolver().catch((err) => console.error('[resolver] failed to start', err));
+
   const fetcher: Fetcher = {
     lottery: (k) => program.account.lottery.fetch(k),
     round: (k) => program.account.round.fetch(k),
